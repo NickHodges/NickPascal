@@ -1653,8 +1653,8 @@ Rules:
 1. The selector expression must be of an ordinal type.
 2. Each case label must be a constant expression of a compatible ordinal type.
 3. No two case labels may have the same value. Ranges must not overlap.
-5. If the selector matches no label, the `else` clause executes (if present). If no `else` and no match, execution continues after `end`.
-6. Unlike C, there is no fall-through between cases.
+4. If the selector matches no label, the `else` clause executes (if present). If no `else` and no match, execution continues after `end`.
+5. Unlike C, there is no fall-through between cases.
 
 ### 6.7 The `for` Statement
 
@@ -1984,7 +1984,6 @@ Nested routines can access the local variables and parameters of all enclosing r
 | `abstract`     | No implementation (must be overridden)                     |
 | `override`     | Override an inherited virtual/dynamic method                |
 | `reintroduce`  | Hides an inherited method (suppresses warning)             |
-| `overload`     | Participates in overload resolution                        |
 | `message`      | Message handler                                            |
 | `final`        | Prevents further overriding                                |
 
