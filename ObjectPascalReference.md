@@ -1820,7 +1820,7 @@ FUNCTION_HEADER  = 'function' IDENT [ GENERIC_PARAMS ] [ FORMAL_PARAMS ] ':' RET
 ```
 FORMAL_PARAMS = '(' PARAM_GROUP { ';' PARAM_GROUP } ')' ;
 PARAM_GROUP   = [ PARAM_MODIFIER ] IDENT_LIST [ ':' PARAM_TYPE ] [ '=' DEFAULT_VALUE ] ;
-PARAM_MODIFIER = 'var' | 'const' | 'out' | 'const' '[' 'ref' ']' ;
+PARAM_MODIFIER = 'var' | 'const' | 'out' | 'const' '[' 'ref' ']' | '[' 'ref' ']' ;
 PARAM_TYPE     = TYPE | 'array' 'of' TYPE | 'array' 'of' 'const' ;
 ```
 
@@ -4212,6 +4212,10 @@ RequiresClause    = 'requires' IdentList ';' ;
 ContainsClause    = 'contains' UsesEntry { ',' UsesEntry } ';' ;
 
 InterfaceSection  = 'interface' [ UsesClause ] { InterfaceDecl } ;
+InterfaceDecl     = ConstSection | TypeSection | VarSection | ThreadVarSection
+                  | ResourceStrSection
+                  | ProcHeader ';' [ DirectiveList ';' ]
+                  | FuncHeader ';' [ DirectiveList ';' ] ;
 ImplementationSection = 'implementation' [ UsesClause ] { DeclSection } ;
 
 InitSection       = 'initialization' StmtList [ 'finalization' StmtList ]
@@ -4224,7 +4228,7 @@ Block             = { DeclSection } CompoundStmt ;
 
 ```ebnf
 DeclSection       = LabelSection | ConstSection | TypeSection
-                  | VarSection | ThreadVarSection
+                  | VarSection | ThreadVarSection | ResourceStrSection
                   | ProcedureDecl | FunctionDecl | ExportsClause ;
 
 LabelSection      = 'label' Label { ',' Label } ';' ;
@@ -4455,9 +4459,10 @@ AnonymousMethod   = ( 'procedure' | 'function' ) [ FormalParams ] [ ':' Type ]
 ExprList          = Expression { ',' Expression } ;
 
 RelOp             = '=' | '<>' | '<' | '>' | '<=' | '>='
-                  | 'in' | 'is' | 'as' ;
+                  | 'in' | 'is' ;
 AddOp             = '+' | '-' | 'or' | 'xor' ;
-MulOp             = '*' | '/' | 'div' | 'mod' | 'and' | 'shl' | 'shr' ;
+MulOp             = '*' | '/' | 'div' | 'mod' | 'and' | 'shl' | 'shr'
+                  | 'as' ;
 ```
 
 ### C.9 Attributes
