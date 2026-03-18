@@ -164,14 +164,15 @@ Directive words are context-sensitive: they have special meaning in specific syn
 ```
 absolute        dynamic         name            readonly
 abstract        experimental    near            reference
-assembler       export          nodefault       register
-automated       external        noreturn        reintroduce
-cdecl           far             overload        requires
-contains        final           override        resident
-default         forward         package         safecall
-delayed         helper          pascal          sealed
-deprecated      implements      platform        static
-dispid          index           private         stdcall
+align           export          nodefault       register
+assembler       external        noreturn        reintroduce
+automated       far             overload        requires
+cdecl           final           override        resident
+contains        forward         package         safecall
+default         helper          pascal          sealed
+delayed         implements      platform        static
+deprecated      index           private         stdcall
+dispid
 ```
 
 ```
@@ -884,7 +885,7 @@ procedure Format(const Args: array of const);
 RECORD_TYPE = 'record'
               { FIELD_SECTION }
               [ VARIANT_PART ]
-              'end' ;
+              'end' [ 'align' CONST_EXPR ] ;
 
 FIELD_SECTION = [ VISIBILITY ] FIELD_LIST ';'
               | METHOD_DECLARATION
@@ -928,6 +929,22 @@ type
 ```
 
 The total size of the record is the size of the fixed fields plus the size of the **largest** variant.
+
+##### Per-Record Alignment (`align`)
+
+The optional `align` clause after `end` specifies the minimum alignment for the record type:
+
+```pascal
+type
+  TAligned = record
+    X: Byte;
+    Y: Integer;
+  end align 16;
+```
+
+The alignment value must be a constant expression evaluating to 1, 2, 4, 8, or 16. This controls both field alignment within the record and the alignment of the record type itself when allocated. The `align` clause has no effect on `packed` records.
+
+When no `align` clause is specified, the compiler directive `{$ALIGN}` (or `{$A}`) controls field alignment (default is `{$A8}`).
 
 #### 3.6.3 Set Types
 
@@ -1406,7 +1423,7 @@ Operators are listed from highest to lowest precedence:
 | 1 (highest)| `@`, `not`, unary `+`, unary `-` | Unary               |
 | 2          | `*`, `/`, `div`, `mod`, `and`, `shl`, `shr`, `as` | Multiplicative |
 | 3          | `+`, `-`, `or`, `xor`           | Additive            |
-| 4 (lowest) | `=`, `<>`, `<`, `>`, `<=`, `>=`, `in`, `is` | Relational |
+| 4 (lowest) | `=`, `<>`, `<`, `>`, `<=`, `>=`, `in`, `is`, `not in`, `is not` | Relational |
 
 All binary operators at the same precedence level are **left-associative**.
 
@@ -1501,6 +1518,7 @@ String comparison is **ordinal** (compares character code points left to right).
 | `<=`     | Subset          | Set           | Boolean     |
 | `>=`     | Superset        | Set           | Boolean     |
 | `in`     | Membership      | Ordinal, Set  | Boolean     |
+| `not in` | Negated membership (Delphi 13+) | Ordinal, Set | Boolean |
 
 A **set constructor** builds a set value:
 
@@ -1520,7 +1538,9 @@ SET_ELEMENT = EXPRESSION [ '..' EXPRESSION ] ;
 | `<=`     | Less than or equal   | Boolean |
 | `>=`     | Greater than or equal | Boolean |
 | `is`     | Type test            | Boolean |
+| `is not` | Negated type test (Delphi 13+) | Boolean |
 | `in`     | Set membership       | Boolean |
+| `not in` | Negated set membership (Delphi 13+) | Boolean |
 
 #### 5.8.1 The `is` Operator
 
@@ -1535,6 +1555,22 @@ if Obj is TMyClass then ...
 ```pascal
 if Obj is IMyInterface then ...
 ```
+
+#### 5.8.1a The `is not` Operator (Delphi 13+)
+
+```pascal
+if Obj is not TMyClass then ...
+```
+
+`is not` is the negation of `is`. It is equivalent to `not (Obj is TMyClass)` but avoids the need for parentheses and reads more naturally. The same rules as `is` apply — it works with class types and interfaces.
+
+#### 5.8.1b The `not in` Operator (Delphi 13+)
+
+```pascal
+if Ch not in ['a'..'z'] then ...
+```
+
+`not in` is the negation of `in`. It is equivalent to `not (Ch in S)` but avoids the parentheses required by operator precedence. The left operand is an ordinal value; the right is a set.
 
 #### 5.8.2 The `as` Operator
 
@@ -1678,6 +1714,23 @@ The compiler recognizes certain function-like constructs as intrinsics that are 
 | `Swap(X)`        | Swap bytes of a Word value                          |
 | `Lo(X)`          | Low byte of a word/integer                          |
 | `Hi(X)`          | High byte of a word/integer                         |
+| `NameOf(Ident)`  | String name of an identifier (Delphi 13+)           |
+
+#### 5.14.1 The `NameOf` Intrinsic (Delphi 13+)
+
+`NameOf` returns the **simple (unqualified) name** of an identifier as a compile-time string constant:
+
+```pascal
+var
+  MyVariable: Integer;
+begin
+  WriteLn(NameOf(MyVariable));        // 'MyVariable'
+  WriteLn(NameOf(TObject));           // 'TObject'
+  WriteLn(NameOf(Form1.Button1));     // 'Button1' (last component only)
+end;
+```
+
+`NameOf` accepts variables, types, fields, methods, properties, and qualified identifiers. It always returns the **final** identifier in a dotted path. Because the result is resolved at compile time, it has no runtime cost and cannot raise exceptions.
 
 ---
 
@@ -4324,7 +4377,7 @@ virtual       winapi        write         writeonly
 | 1 (highest)| Unary          | `@`, `not`, unary `+`, unary `-`                    |
 | 2          | Multiplicative | `*`, `/`, `div`, `mod`, `and`, `shl`, `shr`, `as`  |
 | 3          | Additive       | `+`, `-`, `or`, `xor`                               |
-| 4 (lowest) | Relational     | `=`, `<>`, `<`, `>`, `<=`, `>=`, `in`, `is`        |
+| 4 (lowest) | Relational     | `=`, `<>`, `<`, `>`, `<=`, `>=`, `in`, `is`, `not in`, `is not` |
 
 All binary operators are left-associative. Parentheses override precedence.
 
@@ -4421,7 +4474,7 @@ ArrayType         = 'array' [ '[' OrdinalType { ',' OrdinalType } ']' ] 'of' Typ
 SetType           = 'set' 'of' OrdinalType ;
 FileType          = 'file' [ 'of' Type ] ;
 
-RecordType        = 'record' [ RecordFieldList ] 'end' ;
+RecordType        = 'record' [ RecordFieldList ] 'end' [ 'align' ConstExpr ] ;
 RecordFieldList   = { RecordFieldSection } [ VariantPart ] ;
 RecordFieldSection = [ Visibility ] ( FieldList ';' | MethodDecl | PropertyDecl
                     | ConstSection | TypeSection | ClassVarSection | OperatorDecl ) ;
