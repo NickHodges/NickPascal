@@ -1269,7 +1269,7 @@ Operators are listed from highest to lowest precedence:
 
 | Precedence | Operators                        | Category            |
 |------------|----------------------------------|---------------------|
-| 1 (highest)| `@`, `not`                       | Unary               |
+| 1 (highest)| `@`, `not`, unary `+`, unary `-` | Unary               |
 | 2          | `*`, `/`, `div`, `mod`, `and`, `shl`, `shr`, `as` | Multiplicative |
 | 3          | `+`, `-`, `or`, `xor`           | Additive            |
 | 4 (lowest) | `=`, `<>`, `<`, `>`, `<=`, `>=`, `in`, `is` | Relational |
@@ -1611,10 +1611,9 @@ CASE_LABEL = CONST_EXPR [ '..' CONST_EXPR ] ;
 
 Rules:
 
-1. The selector expression must be of an ordinal type or a string type (Delphi 2009+).
-2. For ordinal selectors, each case label must be a constant expression of a compatible ordinal type.
-3. For string selectors, each case label must be a string constant. Comparison is case-sensitive.
-4. No two case labels may have the same value. Ranges must not overlap.
+1. The selector expression must be of an ordinal type.
+2. Each case label must be a constant expression of a compatible ordinal type.
+3. No two case labels may have the same value. Ranges must not overlap.
 5. If the selector matches no label, the `else` clause executes (if present). If no `else` and no match, execution continues after `end`.
 6. Unlike C, there is no fall-through between cases.
 
