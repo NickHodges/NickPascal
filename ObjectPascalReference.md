@@ -1184,7 +1184,7 @@ VAR_DECL    = IDENT_LIST ':' TYPE [ '=' INITIAL_VALUE ] [ PORTABILITY_DIRECTIVE 
 #### 4.5.2 The `absolute` Directive
 
 ```
-ABSOLUTE_CLAUSE = 'absolute' ( IDENT | CONST_EXPR ) ;
+ABSOLUTE_CLAUSE = 'absolute' IDENT ;
 ```
 
 `absolute` overlays a variable at the same memory address as another variable:
@@ -1506,13 +1506,26 @@ See §5.8.2. The `as` operator performs runtime type checking and raises an exce
 
 ### 5.13 Constant Expressions
 
-A **constant expression** is an expression that can be evaluated at compile time. Constant expressions are required in:
+A **constant expression** is an expression that can be evaluated at compile time.
 
-- Array bounds
-- Case labels
+```
+CONST_EXPR     = EXPRESSION ;  (* restricted to compile-time-evaluable operands *)
+INT_CONST_EXPR = CONST_EXPR ;  (* must evaluate to an integer value *)
+ORD_CONST_EXPR = CONST_EXPR ;  (* must evaluate to an ordinal or set value *)
+```
+
+Constant expressions are required in:
+
+- Array bounds (integer)
+- Case labels (ordinal, matching the selector type)
 - Constant declarations
-- Enum values
+- Enum element values (integer)
+- Subrange bounds (ordinal)
 - Default parameter values
+- Property `default` values (ordinal or set)
+- Property `index` values (integer)
+- Property `dispid` values (integer)
+- `message` directive values (integer or string)
 
 Constant expressions may include:
 - Numeric, string, and boolean literals
@@ -1527,6 +1540,8 @@ Constant expressions shall **not** include:
 - Function calls (other than the intrinsics listed above)
 - Pointer operations
 - `@` operator
+
+Note: Many syntactic positions that require compile-time values accept only a specific **subset** of constant expressions (e.g., integer-only or ordinal-only). The specific restriction is noted in each production.
 
 ### 5.14 Inline Expressions and Compiler Intrinsics
 
@@ -2217,11 +2232,11 @@ PROPERTY_INTERFACE = [ '[' PARAM_LIST ']' ] ':' TYPE_IDENT ;
 PROPERTY_SPECIFIER = 'read' DESIGNATOR
                    | 'write' DESIGNATOR
                    | 'stored' ( BOOL_CONST | IDENT )
-                   | 'default' CONST_EXPR
+                   | 'default' ORD_CONST_EXPR
                    | 'nodefault'
-                   | 'index' CONST_EXPR
+                   | 'index' INT_CONST_EXPR
                    | 'implements' IDENT_LIST
-                   | 'dispid' CONST_EXPR ;
+                   | 'dispid' INT_CONST_EXPR ;
 ```
 
 #### 8.10.1 Basic Properties
@@ -4225,7 +4240,7 @@ TypeDecl          = [ AttributeList ] Ident [ GenericParams ] '=' [ 'type' ] Typ
 VarSection        = 'var' { VarDecl } ;
 VarDecl           = IdentList ':' Type [ '=' ConstExpr ] [ PortabilityDir ] ';'
                   | IdentList ':' Type AbsoluteClause ';' ;
-AbsoluteClause    = 'absolute' ( Ident | ConstExpr ) ;
+AbsoluteClause    = 'absolute' Ident ;
 
 ThreadVarSection  = 'threadvar' { VarDecl } ;
 ```
@@ -4315,7 +4330,7 @@ DirectiveList     = Directive { ';' Directive } ;
 Directive         = CallingConv | 'overload' | 'inline' | 'virtual'
                   | 'dynamic' | 'override' | 'abstract' | 'reintroduce'
                   | 'final' | 'static' | PortabilityDir
-                  | 'message' ConstExpr ;
+                  | 'message' ( IntegerLiteral | StringLiteral | Ident ) ;
 CallingConv       = 'register' | 'cdecl' | 'stdcall' | 'safecall'
                   | 'pascal' | 'winapi' ;
 
@@ -4349,10 +4364,10 @@ PropertyDecl      = [ AttributeList ] [ 'class' ] 'property' Ident
 PropertyInterface = [ '[' ParamList ']' ] ':' TypeIdent ;
 PropertySpecifier = 'read' Designator | 'write' Designator
                   | 'stored' ( BoolConst | Ident )
-                  | 'default' ConstExpr | 'nodefault'
-                  | 'index' ConstExpr
+                  | 'default' OrdConstExpr | 'nodefault'
+                  | 'index' IntConstExpr
                   | 'implements' IdentList
-                  | 'dispid' ConstExpr ;
+                  | 'dispid' IntConstExpr ;
 ```
 
 ### C.7 Statements
@@ -4455,7 +4470,13 @@ Attribute         = TypeIdent [ '(' ExprList ')' ] ;
 ```ebnf
 QualifiedIdent    = Ident { '.' Ident } ;
 IdentList         = Ident { ',' Ident } ;
+
+ConstExpr         = Expression ;  (* restricted to compile-time-evaluable operands —
+                                     see §5.13 for permitted constituents *)
+IntConstExpr      = ConstExpr ;   (* must evaluate to an integer value *)
+OrdConstExpr      = ConstExpr ;   (* must evaluate to an ordinal or set value *)
 ConstExprList     = ConstExpr { ',' ConstExpr } ;
+
 PortabilityDir    = 'platform' | 'deprecated' [ StringLiteral ]
                   | 'experimental' | 'library' ;
 Visibility        = 'public' | 'private' | 'protected' | 'published'
