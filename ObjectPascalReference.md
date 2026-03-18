@@ -2621,7 +2621,7 @@ begin
 end;
 ```
 
-Or inherit from `TSingletonImplementation` or `TAggregatedObject` which provide this behavior.
+Or inherit from `TSingletonImplementation` which provides this behavior. (Note: `TAggregatedObject` is a different pattern — it delegates `_AddRef`/`_Release` to a controlling outer object for COM aggregation, rather than disabling reference counting.)
 
 ### 9.6 Interface Delegation (`implements`)
 
@@ -3313,10 +3313,10 @@ The `try..finally` pattern is the standard idiom for object lifetime management.
 #### 14.2.1 FreeAndNil
 
 ```pascal
-procedure FreeAndNil(var Obj);
+procedure FreeAndNil(const [ref] Obj: TObject);
 ```
 
-`FreeAndNil` frees the object and sets the variable to `nil`. This prevents dangling pointer access.
+`FreeAndNil` frees the object and sets the variable to `nil`. This prevents dangling pointer access. The type-safe signature (Delphi 10.4+) ensures that only `TObject` descendants are accepted, preventing misuse with non-object variables.
 
 ### 14.3 Reference Counting
 
