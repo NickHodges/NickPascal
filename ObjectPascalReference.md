@@ -2443,10 +2443,11 @@ An object instance in memory is laid out as follows:
 
 ```
 Offset 0: Pointer to VMT (the class pointer)
-Offset 4/8: Fields from TObject
-... fields from ancestor classes ...
+Offset 4/8: Fields from ancestor classes (in inheritance order, starting from the first class that declares fields)
 ... fields from this class (in declaration order) ...
 ```
+
+Note: `TObject` itself declares no instance fields. The VMT pointer at offset 0 is the only per-instance data contributed by `TObject`. The first declared fields come from whichever descendant class in the inheritance chain first declares fields.
 
 The first field is always a pointer to the **Virtual Method Table**, which in turn contains:
 
@@ -4597,8 +4598,9 @@ For generic methods with type inference:
 
 ```
 Offset 0:         Pointer to VMT (TClass)
-Offset SizeOf(Pointer): Fields from TObject
-...               Fields from ancestor classes (in inheritance order)
+Offset SizeOf(Pointer): Fields from ancestor classes (in inheritance order,
+                  starting from the first class that declares fields;
+                  TObject itself declares no instance fields)
 ...               Fields from declaring class (in declaration order)
                   (with alignment padding as needed)
 ```
