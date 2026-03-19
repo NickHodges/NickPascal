@@ -1200,7 +1200,7 @@ type
 Rules:
 
 1. Only **one** helper per type can be active in a given scope. If multiple helpers for the same type are in scope, the **last one** in `uses` clause order wins — all others are hidden, not merged.
-2. Helper resolution is by **exact type match**. A helper for `Integer` does not apply to a distinct type `type TMyInt = type Integer`, and a class helper for `TObject` does not apply to `TButton` (you need a helper specifically for `TButton` or its ancestor that is the closest match).
+2. For simple type helpers, resolution is by **exact type match**. A helper for `Integer` does not apply to a distinct type `type TMyInt = type Integer`. (Class helpers follow different rules — see §8.15.)
 3. Helpers can extend any named simple type, record type, class type, or enumerated type.
 4. Helper methods receive `Self` as an implicit parameter (by value for value types, by reference for class types).
 5. Helpers can be chained via inheritance: `TExtendedHelper = record helper(TBaseHelper) for Integer` inherits the base helper's methods. However, the one-helper-per-type rule still applies — if both are in scope, only the descendant is active.
@@ -2596,7 +2596,7 @@ Rules:
 2. Class helpers can add methods and properties but **not** fields.
 3. `Self` in a class helper refers to the instance of the helped class.
 4. Helpers can access `private` and `protected` members of the helped class (within the same unit).
-5. Helper resolution matches the **declared type** of the variable, not the runtime type. A helper for `TObject` is only active when the variable is typed as `TObject`, not for variables typed as descendants.
+5. A class helper applies to the helped class **and all its descendants**. A helper for `TObject` is active on `TButton` — but is superseded by any helper for a closer ancestor (e.g., `TControl`) when both are in scope. The compiler picks the helper for the nearest class in the inheritance chain.
 6. Class helpers can inherit from other class helpers via the parent clause: `TMyHelper = class helper(TBaseHelper) for TFoo`. The one-helper-per-class rule still applies.
 7. If the helped class already defines a member with the same name, the class's own member takes precedence over the helper's member.
 
