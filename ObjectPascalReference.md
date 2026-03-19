@@ -136,52 +136,56 @@ A qualified identifier uses dot notation to resolve ambiguity. `System.SysUtils.
 Reserved words have fixed meaning in the language and cannot be used as identifiers (except via the `&` prefix). The complete list:
 
 ```
-and          exports      mod          set
-array        file         nil          shl
-as           finalization not          shr
-asm          finally      object       string
-begin        for          of           then
-case         function     on           threadvar
-class        goto         operator     to
-const        if           or           try
-constructor  implementation out        type
-destructor   in           packed       unit
-dispinterface inherited   procedure    until
-div          initialization program    uses
-do           inline       property     var
-downto       interface    raise        while
-else         is           record       with
-end          label        repeat       xor
-except       library      resourcestring
+and          array        as           asm
+begin        case         class        const
+constructor  destructor   dispinterface div
+do           downto       else         end
+except       exports      file         finalization
+finally      for          function     goto
+if           implementation in         inherited
+initialization inline     interface    is
+label        library      mod          nil
+not          object       of           on
+or           packed       procedure    program
+property     raise        record       repeat
+resourcestring set        shl          shr
+string       then         threadvar    to
+try          type         unit         until
+uses         var          while        with
+xor
 ```
 
-Note: `inline` is a reserved word as of Delphi 2005 and later. In older versions it was a directive.
+Notes:
+- `inline` is a reserved word as of Delphi 2005 and later. In older versions it was a directive.
+- `operator` and `out` have been reclassified as directive/contextual keywords (§1.6) -- they have special meaning only in operator overloading declarations and parameter modifiers respectively, and may be used as identifiers elsewhere.
+- `on` and `at` are context-sensitive reserved words: `on` has special meaning only inside `except` handler syntax; `at` only in `raise` statements.
 
 ### 1.6 Directive Words
 
 Directive words are context-sensitive: they have special meaning in specific syntactic contexts but may be used as identifiers elsewhere. A conforming implementation shall recognize the following directives:
 
 ```
-absolute        dynamic         name            readonly
-abstract        experimental    near            reference
-align           export          nodefault       register
-assembler       external        noreturn        reintroduce
-automated       far             overload        requires
-cdecl           final           override        resident
-contains        forward         package         safecall
-default         helper          pascal          sealed
-delayed         implements      platform        static
-deprecated      index           private         stdcall
-dispid
+absolute        abstract        align           assembler
+automated       cdecl           contains        default
+delayed         deprecated      dispid          dynamic
+experimental    export          external        far
+final           forward         helper          implements
+index           message         name            near
+nodefault       noreturn        operator        out
+overload        override        package         pascal
+platform        private         protected       public
+published       read            readonly        reference
+register        reintroduce     requires        resident
+safecall        sealed          static          stdcall
+stored          strict          unsafe          varargs
+virtual         winapi          write           writeonly
 ```
 
-```
-stored          unsafe          virtual         writeonly
-strict          varargs         winapi          write
-public          published
-```
-
-Note: Visibility specifiers (`private`, `protected`, `public`, `published`) are directives, not reserved words — they can be used as identifiers outside of class/record declarations, though this is strongly discouraged. The reserved words `on`, `operator`, and `out` (§1.5) are not listed here.
+Notes:
+- Visibility specifiers (`private`, `protected`, `public`, `published`) are directives, not reserved words -- they can be used as identifiers outside class/record declarations, though this is strongly discouraged.
+- `operator` and `out` appear here (not in §1.5) because they are context-sensitive directives: `operator` is only meaningful in `class operator` declarations; `out` only as a parameter modifier.
+- `message` is a directive used to declare Windows message-handler methods (§8.8.7).
+- `read` and `write` are property specifier directives (§8.10).
 
 ### 1.7 Numeric Literals
 
@@ -229,9 +233,9 @@ CHAR_LITERAL     = '#' ( DECIMAL_LITERAL | HEX_LITERAL ) ;
 Rules:
 
 1. A single-quoted string `'Hello'` represents a string of characters.
-2. Within a quoted string, two consecutive apostrophes `''` represent a single apostrophe character.
+2. Within a quoted string, two consecutive apostrophes `''` represent a single apostrophe character -- they are an escape sequence, **not** two empty strings being concatenated.
 3. A `#` prefix followed by a decimal or hex integer specifies a character by its ordinal value. `#65` is the character `A`. `#$41` is also `A`.
-4. Adjacent quoted strings and char literals are concatenated at compile time: `'Hello'#13#10'World'` yields a string containing `Hello`, a CR/LF, and `World`.
+4. A char literal may appear adjacent to a quoted string to form a single string constant: `'Hello'#13#10'World'` yields a string containing `Hello`, a CR/LF, and `World`. Two adjacent quoted strings separated by whitespace (`'Hello' 'World'`) are **not** concatenated -- use the `+` operator for explicit string concatenation: `'Hello' + 'World'`.
 5. A string literal of length 1 is compatible with both `Char` and `string` types.
 6. A string literal of length 0 (`''`) represents the empty string.
 7. String literals are **not** null-terminated in their Pascal representation, but the runtime ensures a null terminator is present for interoperability with C APIs.
@@ -398,7 +402,7 @@ UNIT_HEAD = 'unit' UNIT_NAME [ PORTABILITY_DIRECTIVE ] ;
 UNIT_NAME = IDENT { '.' IDENT } ;
 ```
 
-A unit name may contain dots, forming a **dotted unit name** (e.g., `System.SysUtils`). The dots are part of the unit name, not scope resolution operators. The source file name shall match the unit name with dots replaced by periods and an extension of `.pas` (e.g., `System.SysUtils.pas`).
+A unit name may contain dots, forming a **dotted unit name** (e.g., `System.SysUtils`). The dots are part of the unit name, not scope resolution operators. By convention the source file name matches the unit name with a `.pas` extension (e.g., `System.SysUtils.pas`), but this is not a language requirement: the `in` clause of a `uses` statement may redirect the compiler to any file: `uses MyUnit in 'SomeOtherFile.pas';`.
 
 #### 2.3.1 Interface Section
 
@@ -513,7 +517,7 @@ EXPORTS_ENTRY = IDENT [ '(' FORMAL_PARAMS ')' ]
                 [ 'resident' ] ;
 ```
 
-The `exports` clause makes procedures and functions available for dynamic linking from a library or program.
+The `exports` clause makes procedures and functions available for dynamic linking. It is meaningful in **library** (.dll/.so) and **package** (.bpl) files. Programs technically accept the syntax but do not produce importable exports in normal use; the clause is not meaningful there.
 
 - **`name`** — specifies the exported name (may differ from the Pascal identifier).
 - **`index`** — specifies a numeric ordinal for the export (Windows only).
@@ -869,7 +873,22 @@ An **open array parameter** accepts any array (static or dynamic) of a given ele
 procedure Process(const Arr: array of Integer);
 ```
 
-Within the procedure, `Low(Arr)` is always 0 and `High(Arr)` is `Length - 1`. Open arrays are passed as two hidden values: a pointer to the data and the high bound.
+Within the procedure, `Low(Arr)` is always 0 and `High(Arr)` is `Length - 1`. Open arrays are passed as two hidden values: a pointer to the data and the high bound (not the length). The open array parameter is always effectively zero-indexed inside the called routine regardless of the source array's index range.
+
+**Passing rules:**
+- A static array `A: array[5..10] of Integer` may be passed to an open array parameter directly.
+- A dynamic array `D: TArray<Integer>` may also be passed directly.
+- A typed constant array is acceptable.
+
+**Temporary array creation.** An array literal (bracket construct) may be passed directly at the call site:
+
+```pascal
+Process([1, 2, 3, 4]);   // compiler creates a temporary array on the stack
+```
+
+The temporary is created on the stack and lives for the duration of the call.
+
+**`const` optimization.** Marking an open array parameter `const` allows the compiler to pass a pointer to static data without copying. For large arrays this avoids stack allocation. Use `const` whenever the callee does not need to modify the elements.
 
 ##### Array of Const
 
@@ -877,7 +896,7 @@ Within the procedure, `Low(Arr)` is always 0 and `High(Arr)` is `Length - 1`. Op
 procedure Format(const Args: array of const);
 ```
 
-`array of const` is an open array of `TVarRec` records. Each element can hold a value of any type. This is the mechanism underlying `Format`, `WriteLn`, etc.
+`array of const` is an open array of `TVarRec` records. Each element can hold a value of any type. This is the mechanism underlying `Format`, `WriteLn`, etc. Arguments of any type may be passed; the compiler automatically wraps each argument in the appropriate `TVarRec` variant.
 
 #### 3.6.2 Record Types
 
@@ -1132,6 +1151,13 @@ type
   TProc        = reference to procedure;
 ```
 
+#### 3.8.1 Compatibility Rules
+
+- **Procedure pointer vs method pointer**: these two categories are **not** assignment-compatible. A plain procedure pointer cannot hold a method pointer value, and vice versa. Both differ from method references (`reference to`).
+- **Calling convention must match**: assigning a `cdecl` function to a `stdcall` procedural type variable, or vice versa, is a type error. The calling convention is part of the type.
+- **Nested routine restrictions**: a nested (local) procedure/function cannot be assigned to a procedural type variable because it requires access to the enclosing stack frame in a way that is incompatible with a plain code pointer. Only top-level (unit-level) or class/record methods are valid sources.
+- **Method references** (`reference to`) are compatible with both plain procedural types and method pointers when the signatures match, because method references capture a closure that can wrap either. However, the assignment direction matters: you cannot assign a method reference to a plain procedure pointer type.
+
 ### 3.9 Variant Type
 
 The `Variant` type can hold values of many different types at runtime. Variants are used for COM Automation and late-binding scenarios.
@@ -1180,6 +1206,8 @@ A `type T` declaration creates a **distinct type** that:
 - Is NOT identical to the base type (affects overload resolution, generic constraints)
 
 ### 3.11 Type Helpers
+
+"Type helper" is the umbrella term for **class helpers** (§8.15) and **record helpers**. Record helpers (shown below) extend simple types and record types; class helpers extend class types. The syntax for both uses `record helper` or `class helper` respectively -- there is no distinct `type helper` keyword.
 
 ```
 TYPE_HELPER = 'record' 'helper' [ '(' PARENT_HELPER ')' ] 'for' SIMPLE_TYPE
@@ -1313,16 +1341,21 @@ VAR_DECL    = IDENT_LIST ':' TYPE [ '=' INITIAL_VALUE ] [ PORTABILITY_DIRECTIVE 
 #### 4.5.2 The `absolute` Directive
 
 ```
-ABSOLUTE_CLAUSE = 'absolute' IDENT ;
+ABSOLUTE_CLAUSE = 'absolute' ( IDENT | INTEGER_LITERAL ) ;
 ```
 
-`absolute` overlays a variable at the same memory address as another variable:
+`absolute` overlays a variable at the same memory address as another variable or a fixed address:
 
 ```pascal
 var
   L: LongInt;
   B: array[0..3] of Byte absolute L;  // B overlays L
 ```
+
+Restrictions:
+- **Dangerous with managed types.** Overlaying a managed type (string, interface, dynamic array) with an unmanaged alias bypasses reference-count logic, causing leaks or double-frees. Avoid `absolute` with any managed type.
+- **No lifetime tracking.** The compiler does not insert initialization or finalization for the aliasing variable; lifetime is entirely the programmer's responsibility.
+- **No range checking.** The alias variable may extend beyond the source variable's bounds without a compile-time error.
 
 #### 4.5.3 Inline Variable Declarations (Delphi 10.3+)
 
@@ -1371,12 +1404,19 @@ Rules:
 THREADVAR_SECTION = 'threadvar' { VAR_DECL } ;
 ```
 
-`threadvar` declares variables with thread-local storage. Each thread gets its own copy. Thread-local variables are zero-initialized for each new thread.
+`threadvar` declares variables with **thread-local storage (TLS)**. Each thread has its own independent copy of the variable. Thread-local variables are zero-initialized for threads created by the Delphi RTL (`TThread`, `System.Generics`, etc.).
 
 Restrictions:
 
-- Cannot have initializers.
-- Cannot be of a type that requires initialization (classes are OK as pointers, but interfaces and variants are problematic — implementation-defined).
+- Cannot have initializers (no `= value` syntax).
+- Cannot be of a type that requires compiler-managed initialization: interfaces and `Variant` are problematic -- the compiler cannot guarantee per-thread initialization/finalization for them.
+
+Semantics and caveats:
+
+- **New thread initialization.** Threads created directly via OS APIs (e.g., `CreateThread` on Windows) without going through the Delphi RTL will have their threadvar values zero-initialized but the RTL initialization hooks will not run. Managed-type threadvars may be in an inconsistent state in such threads.
+- **No finalization guarantee.** When a thread exits, Delphi finalizes managed threadvar fields for RTL-managed threads. Threads created outside the RTL may not trigger this cleanup, causing leaks.
+- **Per-thread instance.** Each threadvar is effectively a separate variable per thread; changes in one thread are invisible to all others.
+- Use `TThreadLocal<T>` (from `System.Generics`) as a safer alternative for managed types in multi-threaded code.
 
 ### 4.7 Portability Directives
 
@@ -2098,12 +2138,13 @@ begin
 end;
 ```
 
-The `inline` directive requests that the compiler expand the routine's body at each call site instead of generating a procedure call. The compiler may ignore this request for complex routines.
+The `inline` directive is a **hint** requesting that the compiler expand the routine's body at each call site instead of generating a procedure call. The compiler may ignore this request for complex routines or when optimization is disabled.
 
 Rules:
-1. `inline` routines must be fully defined in the interface section (the body must be visible to callers).
-2. Recursive routines cannot be inlined.
-3. Routines containing inline assembly cannot be inlined.
+1. `inline` is a hint, not a guarantee -- the compiler decides whether to actually inline the routine.
+2. For cross-unit inlining, the routine's implementation must be visible to the calling unit. Defining the routine body in the interface section (or in a header-only unit) makes cross-unit inlining possible, but it is not a strict language requirement.
+3. Recursive routines cannot be inlined.
+4. Routines containing inline assembly cannot be inlined.
 
 ### 7.8 The `noreturn` Directive
 
@@ -2230,7 +2271,7 @@ type
   TShape = class abstract
     function Area: Double; virtual; abstract;
   end;
-  TFinalRecord = class sealed
+  TFinalClass = class sealed
     // ...
   end;
 ```
@@ -2391,6 +2432,22 @@ procedure Draw; reintroduce;
 
 `reintroduce` suppresses the compiler warning that occurs when a method in a descendant class has the same name as an inherited virtual method but does not override it. The new method **hides** (rather than overrides) the inherited one.
 
+#### 8.8.7 Message Handler Methods
+
+```pascal
+procedure WMClose(var Msg: TMessage); message WM_CLOSE;
+procedure WMUser(var Msg: TMessage); message WM_USER + 1;
+```
+
+The `message` directive registers the method as a Windows message handler for the specified integer constant. When the object receives a message dispatch call (via `Dispatch` or the VCL message loop), the runtime routes messages to the handler whose `message` value matches the message ID.
+
+Rules:
+1. The method must take exactly one `var` parameter of a message-record type (typically `TMessage` or a compatible record). It must be a procedure (no return value).
+2. The `message` constant must be a compile-time integer constant expression.
+3. Message methods use **dynamic** dispatch internally (a compact message-map, not a VMT slot), making them efficient when many classes handle few messages.
+4. Unlike `virtual`/`dynamic` methods, a message handler is invoked only via `Dispatch` or `DefaultHandler` -- not via a direct polymorphic call.
+5. Descendants inherit message handlers from ancestors; a descendant may override a specific message by declaring its own handler with the same `message` value.
+
 ### 8.9 The `inherited` Keyword
 
 ```pascal
@@ -2428,12 +2485,14 @@ PROPERTY_SPECIFIER = 'read' DESIGNATOR
 property Name: string read FName write SetName;
 ```
 
-- **`read`** specifier: a field name or getter method.
-- **`write`** specifier: a field name or setter method. If omitted, the property is read-only.
+- **`read`** specifier: a field name or getter method. If omitted, the property is **write-only** (uncommon; reading the property is a compile-time error).
+- **`write`** specifier: a field name or setter method. If omitted, the property is **read-only** (assignment is a compile-time error).
 
-Getter signature: `function GetX: T;` (no extra params) or `function GetX: T;` for a field `FX: T`.
+Getter signature: `function GetX: T;` (no extra params) or a field `FX: T`.
 
 Setter signature: `procedure SetX(const Value: T);` or `procedure SetX(Value: T);`.
+
+Property specifiers are **inherited**: a descendant class may re-declare a property from an ancestor to change only the specifiers (e.g., adding `write` to a read-only inherited property, or changing the backing field/method). The full type and name must match the inherited property.
 
 #### 8.10.2 Array Properties (Indexed Properties)
 
@@ -2569,12 +2628,25 @@ type
   TAnimalClass = class of TAnimal;
 ```
 
-A class-reference variable holds a class (not an instance). It can be used to:
+A class-reference variable holds a **class** (not an instance). It can be used to:
 
-1. Call constructors: `MyClass.Create` (virtual construction).
+1. Call constructors: `MyClass.Create` (virtual construction -- dispatches to the actual constructor of whichever class the variable holds at runtime).
 2. Call class methods: `MyClass.ClassName`.
 3. Test with `is` and cast with `as`.
 4. Compare: `if MyClass = TDog then ...`
+5. RTTI access: `MyClass.ClassInfo` returns the `PTypeInfo` pointer, enabling inspection via the `TypInfo` and `RTTI` units.
+
+`TClass` (defined as `class of TObject` in the `System` unit) is the root metaclass. Any class-reference type is assignment-compatible with `TClass`. The classic use is a factory pattern:
+
+```pascal
+type
+  TAnimalClass = class of TAnimal;
+
+function CreateAnimal(AClass: TAnimalClass): TAnimal;
+begin
+  Result := AClass.Create;  // virtual dispatch: creates the right subclass
+end;
+```
 
 ### 8.15 Class Helpers
 
@@ -3159,6 +3231,15 @@ This means:
 
 Unlike C++ templates, Delphi generics are **constrained**: you can only use operations on `T` that are guaranteed by the constraints. Code that relies on unconstrained operations may compile for some type arguments but fail for others. Best practice is to always specify appropriate constraints.
 
+### 11.7.1 Delphi-Specific Generic Limitations
+
+- **No type inference for generic type instantiations.** Type arguments must be explicit when instantiating a generic type (`TStack<Integer>`). Inference is supported only for generic method calls (§11.4.1).
+- **Constraint combinations are additive, not union.** All listed constraints must be satisfied simultaneously: `T: class, constructor` requires a class with a parameterless constructor -- not one or the other.
+- **Instantiation-time errors.** Errors caused by the mismatch between a type argument and operations used in the generic body are reported at the instantiation point, not at the generic declaration. This can produce confusing error messages.
+- **No partial specialization.** Unlike C++, Delphi does not support specializing a generic type for a specific type argument. All instantiations share the same generic body.
+- **No variadic type parameters.** A generic type must have a fixed number of type parameters declared at definition time.
+- **Open generic types cannot be used as type arguments.** `TList<TStack>` (without providing a type argument for `TStack`) is not permitted.
+
 ### 11.8 Predefined Generic Types
 
 The `System` and `System.Generics.Collections` units provide:
@@ -3542,13 +3623,20 @@ Delphi supports the `[weak]` attribute for interface references to break referen
 type
   TChild = class
   private
-    [weak] FParent: IParent;  // weak reference — does not prevent destruction
+    [weak] FParent: IParent;  // weak reference -- does not prevent destruction
   end;
 ```
 
-When the referenced object is destroyed, weak references are automatically set to `nil`.
+When the referenced object is destroyed, weak references are automatically set to `nil`. The runtime tracks all weak references to a given object and zeroes them on destruction.
 
-`[unsafe]` is a variant that does not participate in reference counting at all (no `_AddRef`/`_Release`) and is **not** automatically zeroed.
+**Background.** `[weak]` was introduced for Automatic Reference Counting (ARC), originally targeting mobile platforms. On Win32/Win64, ARC is not used for class types, but `[weak]` is still honored for **interface** references. It is not meaningful for plain class-type fields on desktop platforms (use a non-owning raw pointer instead).
+
+**`[unsafe]`** is a stronger variant: it does not participate in reference counting at all (no `_AddRef`/`_Release` calls) and is **not** automatically zeroed when the referenced object is destroyed. Accessing an `[unsafe]` reference after the referenced object is freed is undefined behavior -- the pointer may be dangling. Use `[unsafe]` only in interop scenarios where the lifetime is managed externally.
+
+Lifetime implications:
+- A `[weak]` reference extends the lifetime of nothing. If all strong references to an object go away, the object is destroyed and all weak references to it become `nil`.
+- Always check a `[weak]` reference for `nil` before using it; the object may have been destroyed on another thread between the check and the use in multi-threaded code.
+- `[unsafe]` offers no protection at all; the programmer is fully responsible for ensuring the referenced object outlives the reference.
 
 ### 14.6 Managed Types Summary
 
