@@ -1191,6 +1191,13 @@ Special values:
 
 **Custom variant types** can be created by descending from `TCustomVariantType` and registering the type, enabling variants to hold arbitrary data with custom conversion and operator semantics.
 
+#### 3.9.2 Variant Caveats
+
+1. **Performance**: Variant operations are significantly slower than typed equivalents. Every operation involves runtime type checking, potential conversion, and dynamic dispatch. Avoid variants in performance-sensitive code paths.
+2. **Late-bound calls lack compile-time checking**: Calling methods via `V.SomeMethod` (late binding through `IDispatch`) has no compile-time verification. If the method does not exist on the underlying object, an `EOleSysError` or `EVariantError` is raised at runtime.
+3. **Implicit conversions can produce unexpected results**: For example, adding a string variant `'3'` to an integer variant `4` may produce `7` (numeric addition) or `'34'` (string concatenation) depending on the operation and conversion rules, which can mask logic errors.
+4. **Best practice**: Prefer typed alternatives when the type is known at compile time. Reserve variants for COM interop, database field values, and other genuinely dynamic scenarios where the type is not known until runtime.
+
 ### 3.10 Type Aliases and Distinct Types
 
 ```pascal
@@ -1967,6 +1974,11 @@ finally
 end;
 ```
 
+The compiler generates different cleanup code depending on whether `GetEnumerator` returns a class or a record:
+
+- **Class enumerators**: The compiler wraps the loop in `try..finally` with `Enum.Free` as shown above, since the enumerator is heap-allocated and must be explicitly freed.
+- **Record enumerators**: The enumerator is stack-allocated and requires no explicit cleanup — no `try..finally` is generated. Record enumerators avoid heap allocation overhead and are the more common and efficient choice in modern Delphi. Most RTL and third-party collection enumerators (including Spring4D) use records.
+
 ### 6.8 The `while` Statement
 
 ```
@@ -2176,7 +2188,7 @@ EXTERNAL_DIRECTIVE = 'external' [ STRING_LITERAL ]
 - **`external 'lib'`** — the routine is implemented in an external DLL/shared library.
 - **`name 'ExportName'`** — specifies the exported name (for name mangling differences).
 - **`index N`** — specifies the export ordinal.
-- **`delayed`** — the DLL is loaded on first call (delay-loaded), not at program startup. If the DLL is not found, `EExternalException` is raised at call time.
+- **`delayed`** — the DLL is loaded on first call (delay-loaded), not at program startup. If the DLL is not found or the function is not exported, `EExternalException` is raised on the **first invocation** of the function. If the delayed function is never called, the DLL is never loaded and no error occurs. This makes `delayed` useful for optional functionality — the application can check for the DLL's existence before calling, or catch the exception at the call site. This contrasts with non-delayed externals, where a missing DLL prevents the application from loading entirely.
 
 ### 7.7 Inline Expansion
 
@@ -2411,7 +2423,7 @@ Rules:
    c. Sets the object's class pointer (first field in the VMT layout).
    d. Executes the constructor body.
    e. Calls `AfterConstruction`.
-3. **Exception safety**: If an exception occurs during the constructor body, `Destroy` is called automatically and the memory is freed.
+3. **Exception safety**: If an exception occurs during a constructor invoked on a **class reference** (the allocation form from rule 1), `Destroy` is called automatically and the allocated memory is freed. If the constructor was invoked on an existing instance (e.g., `inherited Create` or `Self.Create`), no automatic `Destroy` or deallocation occurs — the caller is responsible for cleanup.
 4. Constructors can be `virtual`. When called through a class-reference variable (`TClass.Create`), the actual constructor dispatched depends on the runtime class.
 
 ### 8.7 Destructors
@@ -2448,6 +2460,8 @@ procedure WndProc(var Message: TMessage); dynamic;
 ```
 
 `dynamic` is semantically identical to `virtual` but uses a different dispatch mechanism: a compact message-map instead of a full VMT slot. This saves memory when many classes override few methods, but dispatch is slower (linear search). `dynamic` is primarily used for Windows message handlers.
+
+**Modern practice:** Prefer `virtual` in almost all cases. The memory savings of `dynamic` are negligible on modern hardware (a few bytes per class in the VMT), and the slower dispatch via linear search rarely justifies it. `dynamic` remains relevant mainly for message handlers (which use the `message` directive and its own dispatch mechanism). When in doubt, use `virtual`.
 
 #### 8.8.3 The `override` Directive
 
@@ -2674,6 +2688,16 @@ TObject = class
 end;
 ```
 
+#### 8.13.1 AfterConstruction and BeforeDestruction
+
+`AfterConstruction` and `BeforeDestruction` are virtual methods called automatically by the runtime at specific points in an object's lifecycle:
+
+- **`AfterConstruction`** is called after the **outermost** constructor completes — that is, after the entire constructor chain (including all `inherited` calls) has finished and the object is fully initialized. This is the safe place to perform initialization that depends on the object being fully constructed, such as starting timers, registering with observers, or calling virtual methods that descendants may override.
+
+- **`BeforeDestruction`** is called before the **outermost** destructor begins — that is, before any destructor body executes. This is the safe place to perform cleanup that requires the object to still be fully intact, such as unregistering from observers or stopping threads.
+
+Both methods are `virtual` and can be overridden in descendants. The default `TObject` implementations do nothing.
+
 ### 8.14 Class References (Metaclasses)
 
 ```
@@ -2688,7 +2712,7 @@ type
 
 A class-reference variable holds a **class** (not an instance). It can be used to:
 
-1. Call constructors: `MyClass.Create` (virtual construction -- dispatches to the actual constructor of whichever class the variable holds at runtime).
+1. Call constructors: `MyClass.Create` (virtual construction — dispatches to the actual constructor of whichever class the variable holds at runtime, **provided the constructor is declared `virtual`**).
 2. Call class methods: `MyClass.ClassName`.
 3. Test with `is` and cast with `as`.
 4. Compare: `if MyClass = TDog then ...`
@@ -2698,6 +2722,10 @@ A class-reference variable holds a **class** (not an instance). It can be used t
 
 ```pascal
 type
+  TAnimal = class
+    constructor Create; virtual;  // must be virtual for polymorphic dispatch
+  end;
+
   TAnimalClass = class of TAnimal;
 
 function CreateAnimal(AClass: TAnimalClass): TAnimal;
@@ -2705,6 +2733,8 @@ begin
   Result := AClass.Create;  // virtual dispatch: creates the right subclass
 end;
 ```
+
+**Important:** For polymorphic dispatch through a class reference, the constructor **must** be declared `virtual` (and descendants must use `override`). `TObject.Create` is virtual, so basic examples work by default. However, if a class declares a non-virtual constructor and it is called through a class-reference variable, the base class's constructor executes — not the descendant's — which is almost never the intended behavior in a factory pattern.
 
 ### 8.15 Class Helpers
 
@@ -3238,6 +3268,13 @@ type
   end;
 ```
 
+**Constraint combination rules:**
+- Only **one** class-type constraint is allowed per type parameter. `T: TFoo, TBar` (two class constraints) is a compile error, consistent with Delphi's single-inheritance model.
+- Multiple **interface** constraints are allowed and can be combined with a single class constraint: `T: TFoo, IBar, IBaz`.
+- The `class` and `record` constraints are mutually exclusive.
+- The `class` and `unmanaged` constraints are mutually exclusive.
+- All listed constraints must be satisfied simultaneously — they are additive, not alternatives.
+
 #### 11.3.1 Operations Permitted by Constraints
 
 Without constraints, only these operations are permitted on a type parameter `T`:
@@ -3453,7 +3490,21 @@ Rules:
 1. Captured variables are captured **by reference**, not by value. Changes to the variable inside the anonymous method affect the original, and vice versa.
 2. Captured variables are **lifetime-extended**: they are moved from the stack to a hidden reference-counted **capture object** (implemented as a compiler-generated interface). They survive as long as any anonymous method referencing them exists.
 3. Multiple anonymous methods in the same scope share the same capture object (and thus the same captured variables).
-4. Loop variables captured by reference share a single storage location, which may lead to unexpected behavior (all closures see the final value). This is a well-known gotcha.
+4. Loop variables captured by reference share a single storage location, which may lead to unexpected behavior (all closures see the final value). This is a well-known gotcha. The standard workaround is to copy the loop variable to a local variable before capturing:
+
+```pascal
+for i := 0 to 9 do
+begin
+  var LocalCopy := i;  // new local per iteration
+  Procs[i] :=
+    procedure
+    begin
+      WriteLn(LocalCopy);  // each closure captures its own LocalCopy
+    end;
+end;
+```
+
+Each iteration creates a new `LocalCopy` variable with its own captured lifetime, so each anonymous method sees the value of `i` at the time it was copied.
 
 ### 12.4 Implementation Details
 
@@ -3931,6 +3982,16 @@ By default, full RTTI is generated for `published` members and limited RTTI for 
 ### 15.6 The `{$M}` Directive
 
 `{$M+}` enables generation of `published` RTTI for a class and all its descendants. `TPersistent` has `{$M+}`, so all `TPersistent` descendants support published property streaming.
+
+### 15.7 RTTI and Generic Types
+
+Each distinct generic instantiation generates its own RTTI. `TList<Integer>` and `TList<string>` are separate types with separate RTTI records.
+
+Rules:
+1. **Naming**: `TRttiType.Name` returns names that include the fully qualified type arguments, e.g., `TList<System.Integer>`, `TDictionary<System.string,System.Integer>`.
+2. **FindType**: `TRttiContext.FindType` requires the exact mangled name including type arguments. Finding a generic type by name requires knowing this precise form.
+3. **Per-instantiation RTTI**: Each instantiation has its own `TypeInfo` pointer. `TypeInfo(TList<Integer>) <> TypeInfo(TList<string>)`.
+4. **Uninstantiated generics**: Open generic types (e.g., `TList<T>` before instantiation) do not have RTTI. Only concrete instantiations produce RTTI records.
 
 ---
 
