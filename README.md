@@ -78,7 +78,7 @@ Because every great language deserves a spec with someone's name on it. Niklaus 
 
 Found an inaccuracy? A missing edge case? A compiler directive from 1998 that still haunts your dreams? Open an issue or submit a PR.
 
-### AI-Assisted Review
+### How You Can Help
 
 You can use an AI coding assistant (Claude Code, Cursor, etc.) to review the specification and contribute. Clone the repo, then use this prompt:
 
