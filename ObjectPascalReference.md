@@ -38,32 +38,34 @@ Keywords appear in **`bold monospace`** and are shown in lowercase. The language
 
 ## Table of Contents
 
-1. Lexical Structure
-2. Program Organization
-3. Types
-4. Declarations
-5. Expressions
-6. Statements
-7. Procedures and Functions
-8. Classes
-9. Interfaces
-10. Advanced Records
-11. Generics
-12. Anonymous Methods and Method References
-13. Exception Handling
-14. Memory Management and Object Lifecycle
-15. Runtime Type Information (RTTI) and Attributes
-16. Inline Assembly
-17. Compiler Directives
-18. Calling Conventions and Interoperability
-19. Predefined Identifiers and Intrinsic Routines
+1. [Lexical Structure](#chapter-1-lexical-structure)
+2. [Program Organization](#chapter-2-program-organization)
+3. [Types](#chapter-3-types)
+4. [Declarations](#chapter-4-declarations)
+5. [Expressions](#chapter-5-expressions)
+6. [Statements](#chapter-6-statements)
+7. [Procedures and Functions](#chapter-7-procedures-and-functions)
+8. [Classes](#chapter-8-classes)
+9. [Interfaces](#chapter-9-interfaces)
+10. [Advanced Records](#chapter-10-advanced-records)
+11. [Generics](#chapter-11-generics)
+12. [Anonymous Methods and Method References](#chapter-12-anonymous-methods-and-method-references)
+13. [Exception Handling](#chapter-13-exception-handling)
+14. [Memory Management and Object Lifecycle](#chapter-14-memory-management-and-object-lifecycle)
+15. [Runtime Type Information (RTTI) and Attributes](#chapter-15-runtime-type-information-rtti-and-attributes)
+16. [Inline Assembly](#chapter-16-inline-assembly)
+17. [Compiler Directives](#chapter-17-compiler-directives)
+18. [Calling Conventions and Interoperability](#chapter-18-calling-conventions-and-interoperability)
+19. [Predefined Identifiers and Intrinsic Routines](#chapter-19-predefined-identifiers-and-intrinsic-routines)
 
 Appendices:
-- A. Complete Reserved Words and Directives
-- B. Operator Precedence Table
-- C. Consolidated EBNF Grammar
-- D. Type Compatibility and Assignment Compatibility Rules
-- E. Name Resolution and Overload Resolution Rules
+- [A. Complete Reserved Words and Directives](#appendix-a-complete-reserved-words-and-directives)
+- [B. Operator Precedence Table](#appendix-b-operator-precedence-table)
+- [C. Consolidated EBNF Grammar](#appendix-c-consolidated-ebnf-grammar)
+- [D. Type Compatibility and Assignment Compatibility Rules](#appendix-d-type-compatibility-and-assignment-compatibility-rules)
+- [E. Name Resolution and Overload Resolution Rules](#appendix-e-name-resolution-and-overload-resolution-rules)
+- [F. Runtime Memory Layout](#appendix-f-runtime-memory-layout)
+- [G. Program Startup and Shutdown Sequence](#appendix-g-program-startup-and-shutdown-sequence)
 
 ---
 
@@ -79,7 +81,7 @@ A conforming implementation shall accept source files encoded in:
 
 When a UTF-8 BOM (`EF BB BF`) or UTF-16 BOM (`FF FE`) is present, the implementation shall use the indicated encoding. In the absence of a BOM, the implementation shall assume a default encoding (implementation-defined; typically UTF-8 or the system ANSI code page).
 
-String literals and comments may contain any Unicode code point permitted by the source encoding. Identifiers are restricted as specified in §1.4.
+String literals and comments may contain any Unicode code point permitted by the source encoding. Identifiers are restricted as specified in [§1.4](#14-identifiers).
 
 ### 1.2 Line Structure
 
@@ -119,8 +121,8 @@ Rules:
 1. Identifiers are **case-insensitive**. `MyVar`, `myvar`, and `MYVAR` all refer to the same entity.
 2. Identifiers may begin with a letter or underscore, followed by zero or more letters, digits, or underscores.
 3. The **significant length** of an identifier is 255 characters. Characters beyond position 255 are ignored for purposes of identity comparison.
-4. An identifier that matches a **reserved word** (§1.5) cannot be used as a user-defined identifier unless prefixed with `&` (the escaped identifier prefix). The `&` is not part of the identifier name; `&begin` refers to an identifier named `begin`.
-5. Identifiers matching **directive words** (§1.6) may be used as user-defined identifiers, but this is discouraged.
+4. An identifier that matches a **reserved word** ([§1.5](#15-reserved-words)) cannot be used as a user-defined identifier unless prefixed with `&` (the escaped identifier prefix). The `&` is not part of the identifier name; `&begin` refers to an identifier named `begin`.
+5. Identifiers matching **directive words** ([§1.6](#16-directive-words)) may be used as user-defined identifiers, but this is discouraged.
 
 #### 1.4.1 Qualified Identifiers
 
@@ -157,7 +159,7 @@ xor
 
 Notes:
 - `inline` is a reserved word as of Delphi 2005 and later. In older versions it was a directive.
-- `operator` and `out` have been reclassified as directive/contextual keywords (§1.6) -- they have special meaning only in operator overloading declarations and parameter modifiers respectively, and may be used as identifiers elsewhere.
+- `operator` and `out` have been reclassified as directive/contextual keywords ([§1.6](#16-directive-words)) -- they have special meaning only in operator overloading declarations and parameter modifiers respectively, and may be used as identifiers elsewhere.
 - `on` and `at` are context-sensitive reserved words: `on` has special meaning only inside `except` handler syntax; `at` only in `raise` statements.
 
 ### 1.6 Directive Words
@@ -184,9 +186,9 @@ writeonly
 
 Notes:
 - Visibility specifiers (`private`, `protected`, `public`, `published`) are directives, not reserved words -- they can be used as identifiers outside class/record declarations, though this is strongly discouraged.
-- `operator` and `out` appear here (not in §1.5) because they are context-sensitive directives: `operator` is only meaningful in `class operator` declarations; `out` only as a parameter modifier.
-- `message` is a directive used to declare Windows message-handler methods (§8.8.7).
-- `read` and `write` are property specifier directives (§8.10).
+- `operator` and `out` appear here (not in [§1.5](#15-reserved-words)) because they are context-sensitive directives: `operator` is only meaningful in `class operator` declarations; `out` only as a parameter modifier.
+- `message` is a directive used to declare Windows message-handler methods ([§8.8.7](#887-message-handler-methods)).
+- `read` and `write` are property specifier directives ([§8.10](#810-properties)).
 
 ### 1.7 Numeric Literals
 
@@ -271,7 +273,7 @@ Rules:
 1. Comments are treated as white space (they separate tokens but produce no tokens themselves).
 2. Comments do **not** nest. `{ { } }` — the first `}` ends the comment.
 3. However, different comment styles **do not** interact: `{ (* } *)` — the `{` opens a brace comment; the `(*` inside it is just comment text; the `}` ends the brace comment; the `*)` is then a syntax error (or stray tokens). Conversely, `(* { *) }` — the `(*` opens a paren-star comment; the `{` is comment text; the `*)` ends the comment; the `}` is stray.
-4. A `{` or `(*` that is immediately followed by `$` introduces a **compiler directive** (§17), not an ordinary comment.
+4. A `{` or `(*` that is immediately followed by `$` introduces a **compiler directive** ([§17](#chapter-17-compiler-directives)), not an ordinary comment.
 
 ### 1.10 Operators and Delimiters
 
@@ -541,7 +543,7 @@ Name lookup proceeds from innermost to outermost scope. The first match is used.
 
 #### 2.8.2 The `with` Statement and Scope
 
-The `with` statement (§6.14) temporarily adds record/class member scopes to the current scope chain, creating potential for ambiguity. See §6.14 for details.
+The `with` statement ([§6.14](#614-the-with-statement)) temporarily adds record/class member scopes to the current scope chain, creating potential for ambiguity. See [§6.14](#614-the-with-statement) for details.
 
 #### 2.8.3 Unit Namespace Resolution
 
@@ -625,7 +627,7 @@ A value of type `S` is assignment-compatible with type `T` if any of the followi
 11. `S` is a procedural type compatible with `T` (matching parameter lists and calling convention).
 12. `S` is `Variant` and `T` is a type for which variant conversion is defined, or vice versa.
 
-See Appendix D for the complete, formal rules.
+See [Appendix D](#appendix-d-type-compatibility-and-assignment-compatibility-rules) for the complete, formal rules.
 
 ### 3.3 Ordinal Types
 
@@ -932,7 +934,7 @@ Records are **value types**. Assignment copies all fields. Records may contain:
 - Class variables (`class var`)
 - Constructors (but no destructors — records have no finalizer other than `Finalize` for managed fields)
 
-Records **cannot** inherit from other records and do not support polymorphism. See Chapter 10 for advanced record features.
+Records **cannot** inherit from other records and do not support polymorphism. See [Chapter 10](#chapter-10-advanced-records) for advanced record features.
 
 ##### Variant Parts
 
@@ -1140,7 +1142,7 @@ Three categories:
 
 1. **Procedure/function pointers** — point to standalone procedures/functions.
 2. **Method pointers** (`of object`) — point to a method bound to a specific object instance. Stored as a pair: (code pointer, data/object pointer).
-3. **Method references** (`reference to`) — see Chapter 12.
+3. **Method references** (`reference to`) — see [Chapter 12](#chapter-12-anonymous-methods-and-method-references).
 
 A procedural type variable can hold `nil`.
 
@@ -1215,7 +1217,7 @@ A `type T` declaration creates a **distinct type** that:
 
 ### 3.11 Type Helpers
 
-"Type helper" is the umbrella term for **class helpers** (§8.15) and **record helpers**. Record helpers (shown below) extend simple types and record types; class helpers extend class types. The syntax for both uses `record helper` or `class helper` respectively -- there is no distinct `type helper` keyword.
+"Type helper" is the umbrella term for **class helpers** ([§8.15](#815-class-helpers)) and **record helpers**. Record helpers (shown below) extend simple types and record types; class helpers extend class types. The syntax for both uses `record helper` or `class helper` respectively -- there is no distinct `type helper` keyword.
 
 ```
 TYPE_HELPER = 'record' 'helper' [ '(' PARENT_HELPER ')' ] 'for' SIMPLE_TYPE
@@ -1236,7 +1238,7 @@ type
 Rules:
 
 1. Only **one** helper per type can be active in a given scope. If multiple helpers for the same type are in scope, the **last one** in `uses` clause order wins — all others are hidden, not merged.
-2. For simple type helpers, resolution is by **exact type match**. A helper for `Integer` does not apply to a distinct type `type TMyInt = type Integer`. (Class helpers follow different rules — see §8.15.)
+2. For simple type helpers, resolution is by **exact type match**. A helper for `Integer` does not apply to a distinct type `type TMyInt = type Integer`. (Class helpers follow different rules — see [§8.15](#815-class-helpers).)
 3. Helpers can extend any named simple type, record type, class type, or enumerated type.
 4. Helper methods receive `Self` as an implicit parameter (by value for value types, by reference for class types).
 5. Helpers can be chained via inheritance: `TExtendedHelper = record helper(TBaseHelper) for Integer` inherits the base helper's methods. However, the one-helper-per-type rule still applies — if both are in scope, only the descendant is active.
@@ -1284,7 +1286,7 @@ When no type is given, the constant's type is inferred from the expression. A ty
 ```pascal
 const
   Pi = 3.14159265358979;          // inferred as Extended
-  MaxItems: Integer = 100;        // typed constant (see §4.3.2)
+  MaxItems: Integer = 100;        // typed constant (see [§4.3.2](#432-typed-constants-initialized-variables))
   AppName = 'MyApp';              // inferred as string
   Flags = [fsReadOnly, fsHidden]; // inferred as set
 ```
@@ -1746,7 +1748,7 @@ A variable typecast reinterprets a variable's memory as a different type. The so
 
 #### 5.12.3 Checked Casts (`as`)
 
-See §5.8.2. The `as` operator performs runtime type checking and raises an exception on failure.
+See [§5.8.2](#582-the-as-operator). The `as` operator performs runtime type checking and raises an exception on failure.
 
 ### 5.13 Constant Expressions
 
@@ -2052,15 +2054,15 @@ with A, B do   // equivalent to: with A do with B do
 
 ### 6.15 The `raise` Statement
 
-See Chapter 13 (Exception Handling).
+See [Chapter 13](#chapter-13-exception-handling) (Exception Handling).
 
 ### 6.16 The `try` Statement
 
-See Chapter 13 (Exception Handling).
+See [Chapter 13](#chapter-13-exception-handling) (Exception Handling).
 
 ### 6.17 The `asm` Statement
 
-See Chapter 16 (Inline Assembly).
+See [Chapter 16](#chapter-16-inline-assembly) (Inline Assembly).
 
 ---
 
@@ -2116,7 +2118,7 @@ Rules:
 procedure Sum(const Values: array of Integer);
 ```
 
-See §3.6.1.
+See [§3.6.1](#361-array-types).
 
 #### 7.2.4 Untyped Parameters
 
@@ -2157,7 +2159,7 @@ When a call to an overloaded routine is encountered, the compiler selects the be
 2. **Compatible match**: argument types are assignment-compatible with parameter types but require implicit conversion.
 3. **Most specific match**: among compatible candidates, the one requiring the least "widening" conversions.
 
-If no single best match exists (ambiguity), a compile-time error is issued. See Appendix E for full resolution rules.
+If no single best match exists (ambiguity), a compile-time error is issued. See [Appendix E](#appendix-e-name-resolution-and-overload-resolution-rules) for full resolution rules.
 
 ### 7.5 Forward Declarations
 
@@ -2320,7 +2322,7 @@ type
   end;
 ```
 
-Object Pascal supports **single inheritance** for classes. Multiple interfaces may be implemented (see Chapter 9).
+Object Pascal supports **single inheritance** for classes. Multiple interfaces may be implemented (see [Chapter 9](#chapter-9-interfaces)).
 
 #### 8.2.1 `abstract` and `sealed` Classes
 
@@ -2359,7 +2361,7 @@ type
 FIELD_DECLARATION = IDENT_LIST ':' TYPE ';' ;
 ```
 
-Fields are stored inline in the object's memory layout. Fields are laid out in declaration order, respecting alignment rules (see §8.18).
+Fields are stored inline in the object's memory layout. Fields are laid out in declaration order, respecting alignment rules (see [§8.18](#818-alignment-and-packing)).
 
 #### 8.4.1 Class Fields (`class var`)
 
@@ -2611,7 +2613,7 @@ These control **streaming** (persistence via `TReader`/`TWriter`):
 property Impl: IMyInterface read FImpl implements IMyInterface;
 ```
 
-Delegates an interface implementation to another object. See §9.6.
+Delegates an interface implementation to another object. See [§9.6](#96-interface-delegation-implements).
 
 #### 8.10.7 Class Properties
 
@@ -2640,14 +2642,14 @@ Events enable the observer pattern: the object calls the assigned method (if not
 
 ### 8.12 Operators (Class Operator Overloading)
 
-Classes can overload operators (though this is more common for records — see Chapter 10):
+Classes can overload operators (though this is more common for records — see [Chapter 10](#chapter-10-advanced-records)):
 
 ```pascal
 class operator Implicit(const A: TMyClass): string;
 class operator Explicit(const A: TMyClass): Integer;
 ```
 
-See §10.4 for the full list of overloadable operators.
+See [§10.4](#104-operator-overloading) for the full list of overloadable operators.
 
 ### 8.13 TObject — The Root Class
 
@@ -3130,7 +3132,7 @@ type
   end;
 ```
 
-Record helpers extend existing record types or simple types with additional methods. Same scope rules as class helpers (§8.15) and type helpers (§3.11).
+Record helpers extend existing record types or simple types with additional methods. Same scope rules as class helpers ([§8.15](#815-class-helpers)) and type helpers ([§3.11](#311-type-helpers)).
 
 ### 10.6 Managed Records (Delphi 10.4+)
 
@@ -3364,7 +3366,7 @@ Unlike C++ templates, Delphi generics are **constrained**: you can only use oper
 
 ### 11.7.1 Delphi-Specific Generic Limitations
 
-- **No type inference for generic type instantiations.** Type arguments must be explicit when instantiating a generic type (`TStack<Integer>`). Inference is supported only for generic method calls (§11.4.1).
+- **No type inference for generic type instantiations.** Type arguments must be explicit when instantiating a generic type (`TStack<Integer>`). Inference is supported only for generic method calls ([§11.4.1](#1141-type-inference)).
 - **Constraint combinations are additive, not union.** All listed constraints must be satisfied simultaneously: `T: class, constructor` requires a class with a parameterless constructor -- not one or the other.
 - **Instantiation-time errors.** Errors caused by the mismatch between a type argument and operations used in the generic body are reported at the instantiation point, not at the generic declaration. This can produce confusing error messages.
 - **No partial specialization.** Unlike C++, Delphi does not support specializing a generic type for a specific type argument. All instantiations share the same generic body.
@@ -4957,7 +4959,7 @@ QualifiedIdent    = Ident { '.' Ident } ;
 IdentList         = Ident { ',' Ident } ;
 
 ConstExpr         = Expression ;  (* restricted to compile-time-evaluable operands —
-                                     see §5.13 for permitted constituents *)
+                                     see [§5.13](#513-constant-expressions) for permitted constituents *)
 IntConstExpr      = ConstExpr ;   (* must evaluate to an integer value *)
 OrdConstExpr      = ConstExpr ;   (* must evaluate to an ordinal or set value *)
 ConstExprList     = ConstExpr { ',' ConstExpr } ;
