@@ -171,7 +171,7 @@ automated       cdecl           contains        default
 delayed         deprecated      dispid          dynamic
 experimental    export          external        far
 final           forward         helper          implements
-index           inline          message         name            near
+index           inline          local           message         name            near
 nodefault       noreturn        operator        out
 overload        override        package         pascal
 platform        private         protected       public
@@ -1776,7 +1776,7 @@ Constant expressions may include:
 - Numeric, string, and boolean literals
 - Previously declared constants
 - Arithmetic, logical, and relational operators
-- Intrinsics: `Ord`, `Chr`, `Pred`, `Succ`, `High`, `Low`, `SizeOf`, `Length` (for static arrays and strings), `Abs`, `Round`, `Trunc`, `Odd`, `Lo`, `Hi`, `Swap`
+- Intrinsics: `Ord`, `Chr`, `Pred`, `Succ`, `High`, `Low`, `SizeOf`, `Length` (for static arrays and strings), `Abs`, `Round`, `Trunc`, `Odd`, `Lo`, `Hi`
 - Typecast of constant values
 - String concatenation
 
@@ -3125,9 +3125,6 @@ Complete list of overloadable operators:
 | `LogicalAnd`    | `and`         | Logical/bitwise AND      |
 | `LogicalOr`     | `or`          | Logical/bitwise OR       |
 | `LogicalXor`    | `xor`         | Logical/bitwise XOR      |
-| `BitwiseAnd`    | `and`         | Same as LogicalAnd       |
-| `BitwiseOr`     | `or`          | Same as LogicalOr        |
-| `BitwiseXor`    | `xor`         | Same as LogicalXor       |
 
 Rules:
 1. At least one parameter must be of the declaring type.
@@ -4640,7 +4637,7 @@ Note: `on` and `at` are context-sensitive reserved words (`on` only in `except` 
 ### A.2 Directives (context-sensitive, 70+)
 
 ```
-absolute      abstract      assembler     automated
+absolute      abstract      align         assembler     automated
 cdecl         contains      default       delayed
 deprecated    dispid        dynamic       experimental
 export        external      far           final
@@ -4829,7 +4826,7 @@ DirectiveList     = Directive { ';' Directive } ;
 Directive         = CallingConv | 'overload' | 'inline' | 'virtual'
                   | 'dynamic' | 'override' | 'abstract' | 'reintroduce'
                   | 'final' | 'static' | 'noreturn' | PortabilityDir
-                  | 'message' ( IntegerLiteral | StringLiteral | Ident ) ;
+                  | 'message' ConstExpr ;
 CallingConv       = 'register' | 'cdecl' | 'stdcall' | 'safecall'
                   | 'pascal' | 'winapi' ;
 
@@ -4925,7 +4922,8 @@ ExceptHandler     = 'on' [ Ident ':' ] TypeIdent 'do' Statement ;
 
 AsmStmt           = 'asm' { AsmInstruction } 'end' ;
 
-InlineVarDecl     = 'var' Ident [ ':' Type ] [ ':=' Expression ] ;
+InlineVarDecl     = 'var' Ident ':' Type [ ':=' Expression ]
+                  | 'var' Ident ':=' Expression ;
 InlineConstDecl   = 'const' Ident [ ':' Type ] '=' Expression ;
 ```
 
