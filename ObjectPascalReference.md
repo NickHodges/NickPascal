@@ -1509,9 +1509,9 @@ if (A > 0) and (B > 0) then  // CORRECT
 
 **Overflow behavior:**
 
-- With `{$Q+}` (overflow checking), signed integer overflow raises `EIntOverflow`.
+- With `{$Q+}` (overflow checking), both signed and unsigned integer overflow raise `EIntOverflow`.
 - With `{$Q-}` (the default), signed integer overflow wraps (two's complement).
-- Unsigned integer overflow always wraps.
+- With `{$Q-}`, unsigned integer overflow wraps modulo 2^N.
 
 ### 5.4 Bitwise Operators
 
@@ -1920,8 +1920,8 @@ Rules:
 ### 6.7 The `for` Statement
 
 ```
-FOR_STMT = 'for' IDENT ':=' EXPRESSION ( 'to' | 'downto' ) EXPRESSION 'do'
-           STATEMENT ;
+FOR_STMT = 'for' ( IDENT | 'var' IDENT [ ':' TYPE ] ) ':=' EXPRESSION
+           ( 'to' | 'downto' ) EXPRESSION 'do' STATEMENT ;
 ```
 
 Rules:
@@ -1932,12 +1932,12 @@ Rules:
 4. If the initial value exceeds the final value (for `to`) or is less (for `downto`), the loop body does not execute.
 5. The control variable is **undefined** after the loop terminates normally.
 6. The loop body shall not modify the control variable.
-7. The control variable may be declared inline: `for var I := 0 to 10 do ...`
+7. The control variable may be declared inline: `for var I := 0 to 10 do ...` (Delphi 10.3+).
 
 #### 6.7.1 The `for..in` Statement
 
 ```
-FOR_IN_STMT = 'for' IDENT 'in' EXPRESSION 'do' STATEMENT ;
+FOR_IN_STMT = 'for' ( IDENT | 'var' IDENT [ ':' TYPE ] ) 'in' EXPRESSION 'do' STATEMENT ;
 ```
 
 `for..in` iterates over:
@@ -2326,7 +2326,7 @@ Object Pascal supports **single inheritance** for classes. Multiple interfaces m
 
 #### 8.2.1 `abstract` and `sealed` Classes
 
-- **`abstract`** class: cannot be instantiated directly. It may contain abstract methods.
+- **`abstract`** class: should not be instantiated directly; the compiler issues a warning (W1020) if you do. It may contain abstract methods. Calling an unoverridden abstract method at runtime raises `EAbstractError`.
 - **`sealed`** class: cannot be subclassed (no class may inherit from it).
 
 ```pascal
@@ -2404,7 +2404,7 @@ Class methods receive the class reference (metaclass) as `Self` instead of an in
 #### 8.5.3 Static Class Methods
 
 ```pascal
-class function TMyClass.ClassName: string; static;
+class function TMyClass.DefaultBufferSize: Integer; static;
 ```
 
 Static class methods receive **no** `Self` parameter. They cannot access instance members or be virtual. They are essentially namespaced standalone functions.
@@ -2504,11 +2504,11 @@ procedure WMClose(var Msg: TMessage); message WM_CLOSE;
 procedure WMUser(var Msg: TMessage); message WM_USER + 1;
 ```
 
-The `message` directive registers the method as a Windows message handler for the specified integer constant. When the object receives a message dispatch call (via `Dispatch` or the VCL message loop), the runtime routes messages to the handler whose `message` value matches the message ID.
+The `message` directive registers the method as a message handler for the specified constant. When the object receives a message dispatch call (via `Dispatch` or the VCL/FMX message loop), the runtime routes messages to the handler whose `message` value matches the message ID.
 
 Rules:
 1. The method must take exactly one `var` parameter of a message-record type (typically `TMessage` or a compatible record). It must be a procedure (no return value).
-2. The `message` constant must be a compile-time integer constant expression.
+2. The `message` constant must be a compile-time **integer** or **string** constant expression. Integer message constants are used for Windows message handling (VCL); string message constants are used for cross-platform message dispatch (FMX).
 3. Message methods use **dynamic** dispatch internally (a compact message-map, not a VMT slot), making them efficient when many classes handle few messages.
 4. Unlike `virtual`/`dynamic` methods, a message handler is invoked only via `Dispatch` or `DefaultHandler` -- not via a direct polymorphic call.
 5. Descendants inherit message handlers from ancestors; a descendant may override a specific message by declaring its own handler with the same `message` value.
@@ -4889,9 +4889,10 @@ CaseSelector      = CaseLabelList ':' Statement ;
 CaseLabelList     = CaseLabel { ',' CaseLabel } ;
 CaseLabel         = ConstExpr [ '..' ConstExpr ] ;
 
-ForStmt           = 'for' Ident ':=' Expression ( 'to' | 'downto' ) Expression
-                    'do' Statement
-                  | 'for' Ident 'in' Expression 'do' Statement ;
+ForStmt           = 'for' ( Ident | 'var' Ident [ ':' Type ] ) ':=' Expression
+                    ( 'to' | 'downto' ) Expression 'do' Statement
+                  | 'for' ( Ident | 'var' Ident [ ':' Type ] ) 'in' Expression
+                    'do' Statement ;
 
 WhileStmt         = 'while' Expression 'do' Statement ;
 RepeatStmt        = 'repeat' StmtList 'until' Expression ;
