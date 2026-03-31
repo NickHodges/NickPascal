@@ -145,7 +145,7 @@ div          do           downto       else
 end          except       exports      file
 finalization finally      for          function
 goto         if           implementation in
-inherited    initialization inline     interface
+inherited    initialization interface
 is           label        library      mod
 nil          not          object       of
 on           or           packed       procedure
@@ -158,7 +158,6 @@ with         xor
 ```
 
 Notes:
-- `inline` is a reserved word as of Delphi 2005 and later. In older versions it was a directive.
 - `operator` and `out` are directive/contextual keywords ([§1.6](#16-directive-words)) — they have special meaning only in operator overloading declarations and parameter modifiers respectively, and may be used as identifiers elsewhere.
 - `on` and `at` are context-sensitive reserved words: `on` has special meaning only inside `except` handler syntax; `at` only in `raise` statements. They cannot be used as identifiers without the `&` prefix.
 
@@ -172,7 +171,7 @@ automated       cdecl           contains        default
 delayed         deprecated      dispid          dynamic
 experimental    export          external        far
 final           forward         helper          implements
-index           message         name            near
+index           inline          message         name            near
 nodefault       noreturn        operator        out
 overload        override        package         pascal
 platform        private         protected       public
@@ -849,7 +848,7 @@ Dynamic arrays are **reference-counted**, heap-allocated. They are **0-based** (
 Memory layout:
 
 ```
-[RefCount: Integer][Length: Integer][Element data...]
+[RefCount: Integer][Length: NativeInt][Element data...]
 ```
 
 Operations:
@@ -3446,9 +3445,9 @@ METHOD_REFERENCE = 'reference' 'to' ( PROCEDURE_TYPE | FUNCTION_TYPE ) ;
 type
   TProc = reference to procedure;
   TFunc<TResult> = reference to function: TResult;
-  TFunc<T, TResult> = reference to function(const Arg: T): TResult;
-  TFunc<T1, T2, TResult> = reference to function(const Arg1: T1; const Arg2: T2): TResult;
-  TPredicate<T> = reference to function(const Value: T): Boolean;
+  TFunc<T, TResult> = reference to function(Arg1: T): TResult;
+  TFunc<T1, T2, TResult> = reference to function(Arg1: T1; Arg2: T2): TResult;
+  TPredicate<T> = reference to function(Arg1: T): Boolean;
 ```
 
 Method reference types can hold:
@@ -4317,7 +4316,7 @@ function GetName(out Result: string): HRESULT; stdcall;
 
 When calling a `safecall` method, the compiler:
 1. Checks the returned `HRESULT`.
-2. If it indicates failure, calls `SafeCallException` which raises `EOleSysError`.
+2. If it indicates failure, calls `SafeCallErrorProc` (set by the `ComObj` unit) which raises `EOleException` with the server's error information.
 
 ### 18.2 Interoperability with C/C++
 
@@ -4614,7 +4613,7 @@ The `System` unit is implicitly used by every unit and program. It is always in 
 
 ## Appendix A: Complete Reserved Words and Directives
 
-### A.1 Reserved Words (66 total)
+### A.1 Reserved Words (65 total)
 
 ```
 and           array         as            asm
@@ -4624,7 +4623,7 @@ div           do            downto        else
 end           except        exports       file
 finalization  finally       for           function
 goto          if            implementation in
-inherited     initialization inline        interface
+inherited     initialization interface
 is            label         library       mod
 nil           not           object        of
 on            or            packed        procedure
@@ -4646,7 +4645,7 @@ cdecl         contains      default       delayed
 deprecated    dispid        dynamic       experimental
 export        external      far           final
 forward       helper        implements    index
-local         message       name          near
+inline        local         message       name          near
 nodefault     noreturn      operator      out
 overload      override      package       pascal
 platform      private       protected     public
@@ -5124,9 +5123,9 @@ The VMT pointer points to the first virtual method entry. Negative offsets conta
 | -56 | `vmtClassName` | Pointer to class name (ShortString) |
 | -52 | `vmtInstanceSize` | Instance size |
 | -48 | `vmtParent` | Pointer to parent VMT |
-| -44 | `vmtEquals` | `Equals` virtual method (Delphi 10.4+) |
-| -40 | `vmtGetHashCode` | `GetHashCode` virtual method (Delphi 10.4+) |
-| -36 | `vmtToString` | `ToString` virtual method (Delphi 10.4+) |
+| -44 | `vmtEquals` | `Equals` virtual method (Delphi 2009+) |
+| -40 | `vmtGetHashCode` | `GetHashCode` virtual method (Delphi 2009+) |
+| -36 | `vmtToString` | `ToString` virtual method (Delphi 2009+) |
 | -32 | `vmtSafeCallException` | `SafeCallException` virtual method |
 | -28 | `vmtAfterConstruction` | `AfterConstruction` virtual method |
 | -24 | `vmtBeforeDestruction` | `BeforeDestruction` virtual method |
