@@ -2182,15 +2182,34 @@ function MessageBox(Wnd: HWND; Text, Caption: PChar; Flags: Cardinal): Integer;
 ```
 
 ```
-EXTERNAL_DIRECTIVE = 'external' [ STRING_LITERAL ]
+EXTERNAL_DIRECTIVE = 'external' [ ExternalKind ]
                      [ 'name' STRING_LITERAL | 'index' INTEGER_LITERAL ]
                      [ 'delayed' ] ;
+ExternalKind       = STRING_LITERAL
+                   | 'object' STRING_LITERAL
+                   | 'framework' STRING_LITERAL ;
 ```
 
 - **`external 'lib'`** — the routine is implemented in an external DLL/shared library.
+- **`external object 'file.o'`** — the routine is implemented in a compiled object file (`.o` or `.obj`) that is statically linked into the executable.
+- **`external framework 'Name'`** — the routine is implemented in a macOS/iOS framework (macOS and iOS targets only).
 - **`name 'ExportName'`** — specifies the exported name (for name mangling differences).
 - **`index N`** — specifies the export ordinal.
 - **`delayed`** — the DLL is loaded on first call (delay-loaded), not at program startup. If the DLL is not found or the function is not exported, `EExternalException` is raised on the **first invocation** of the function. If the delayed function is never called, the DLL is never loaded and no error occurs. This makes `delayed` useful for optional functionality — the application can check for the DLL's existence before calling, or catch the exception at the call site. This contrasts with non-delayed externals, where a missing DLL prevents the application from loading entirely.
+
+```pascal
+// External DLL
+function MessageBox(Wnd: HWND; Text, Caption: PChar; Flags: Cardinal): Integer;
+  stdcall; external 'user32.dll' name 'MessageBoxW';
+
+// External object file (static linking)
+function ExpC(Value: Double): Double; cdecl;
+  external object 'ExpC_LLVM_MINGW.obj';
+
+// External framework (macOS/iOS)
+procedure FirebaseCoreLoader; cdecl;
+  external framework 'FirebaseCore';
+```
 
 ### 7.7 Inline Expansion
 
@@ -4815,9 +4834,12 @@ Directive         = CallingConv | 'overload' | 'inline' | 'virtual'
 CallingConv       = 'register' | 'cdecl' | 'stdcall' | 'safecall'
                   | 'pascal' | 'winapi' ;
 
-ExternalDir       = 'external' [ StringLiteral ]
+ExternalDir       = 'external' [ ExternalKind ]
                     [ 'name' StringLiteral | 'index' IntegerLiteral ]
                     [ 'delayed' ] ;
+ExternalKind      = StringLiteral
+                  | 'object' StringLiteral
+                  | 'framework' StringLiteral ;
 
 ExportsClause     = 'exports' ExportsEntry { ',' ExportsEntry } ';' ;
 ExportsEntry      = Ident [ FormalParams ]
