@@ -1003,6 +1003,8 @@ Set operators:
 | `Include(S, E)` | Add element (intrinsic procedure) |
 | `Exclude(S, E)` | Remove element (intrinsic procedure) |
 
+**`packed set`:** The `packed` modifier may precede `set of`. In Delphi's implementation, sets are already stored as bit vectors (the densest possible representation), so `packed set of` produces the same layout and size as a plain `set of`. The `packed` keyword is accepted for compatibility with ISO Pascal and Turbo Pascal but has no practical effect on sets in Delphi. (This contrasts with `packed record` and `packed array`, where `packed` does change field/element alignment.)
+
 #### 3.6.4 File Types
 
 ```
