@@ -1834,7 +1834,7 @@ The compiler recognizes certain function-like constructs as intrinsics that are 
 | `HasWeakRef(T)`  | True if T supports weak references                  |
 | `GetTypeKind(T)` | Returns the TTypeKind for T (resolved at compile time) |
 | `IsConstValue(X)` | True if X is a compile-time constant               |
-| `Assigned(P)`    | True if P is not nil (pointer, object, proc)        |
+| `Assigned(P)`    | True if P is not nil (pointer, object, proc, method reference) |
 | `Default(T)`     | Default (zero) value of type T                      |
 | `Assert(Cond [, Msg])` | Debug assertion                               |
 | `Inc(X [, N])`   | Increment ordinal or pointer                        |
@@ -4664,7 +4664,7 @@ These are built into the compiler and cannot be reassigned or referenced as proc
 | `Initialize(V)` | Initialize managed variable |
 | `Finalize(V [, Count])` | Finalize managed variable |
 | `Addr(X)` | Address of X (same as @X) |
-| `Assigned(P)` | True if not nil |
+| `Assigned(P)` | True if not nil (supports pointers, object references, procedural types, and method references — for method references, tests the underlying interface pointer) |
 
 #### 19.3.6 Flow Control
 
