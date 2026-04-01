@@ -1265,6 +1265,8 @@ DECLARATION_SECTION = LABEL_SECTION
                     | EXPORTS_CLAUSE ;
 ```
 
+> **Note on `EXPORTS_CLAUSE`**: `exports` clauses are valid only in **library** projects (`.dll`/`.so`). They are a declaration-level construct that lists entry points to be exported from the compiled library. In unit `implementation` sections and `program` blocks, `exports` is not permitted.
+
 There is no required ordering (unlike original Pascal which required `label`, `const`, `type`, `var`, then procedures).
 
 ### 4.2 Label Declarations

@@ -533,7 +533,13 @@ semantics {
     on stmt.while { visit children; }
     on stmt.repeat { visit children; }
     on stmt.with { visit children; }
-    on stmt.goto { }
+    on stmt.goto {
+      // IMPORTANT: goto-target lookup must use the "@label:" prefix that was
+      // applied when the label was registered in pass 1 (stmt.label_item).
+      // To look up label "Foo", query the symbol table for "@label:Foo".
+      // This prevents a real constant named "Foo" from being confused with
+      // the jump target.
+    }
 
     on stmt.try_except { visit children; }
     on stmt.raise { visit children; }
