@@ -1371,6 +1371,7 @@ Restrictions:
 - **Dangerous with managed types.** Overlaying a managed type (string, interface, dynamic array) with an unmanaged alias bypasses reference-count logic, causing leaks or double-frees. Avoid `absolute` with any managed type.
 - **No lifetime tracking.** The compiler does not insert initialization or finalization for the aliasing variable; lifetime is entirely the programmer's responsibility.
 - **No range checking.** The alias variable may extend beyond the source variable's bounds without a compile-time error.
+- **Integer-literal form is obsolete.** The `absolute INTEGER_LITERAL` form, which maps a variable to a fixed memory address, originates from 16-bit real-mode DOS programming. On modern protected-mode and 64-bit platforms, writing to a hard-coded address causes an access violation. This form is accepted by the compiler for backward compatibility but should not be used in new code.
 
 #### 4.5.3 Inline Variable Declarations (Delphi 10.3+)
 
