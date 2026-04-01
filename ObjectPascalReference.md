@@ -5173,33 +5173,33 @@ Total size: `TObject.InstanceSize` (includes the VMT pointer but not the heap bl
 
 The VMT pointer points to the first virtual method entry. Negative offsets contain metadata:
 
-| Offset | Field | Type |
-|--------|-------|------|
-| -88 | `vmtSelfPtr` | Pointer to VMT itself |
-| -84 | `vmtIntfTable` | Pointer to interface table |
-| -80 | `vmtAutoTable` | Automation info |
-| -76 | `vmtInitTable` | Field initialization table |
-| -72 | `vmtTypeInfo` | RTTI pointer |
-| -68 | `vmtFieldTable` | Published field table |
-| -64 | `vmtMethodTable` | Published method table |
-| -60 | `vmtDynamicTable` | Dynamic method table |
-| -56 | `vmtClassName` | Pointer to class name (ShortString) |
-| -52 | `vmtInstanceSize` | Instance size |
-| -48 | `vmtParent` | Pointer to parent VMT |
-| -44 | `vmtEquals` | `Equals` virtual method (Delphi 2009+) |
-| -40 | `vmtGetHashCode` | `GetHashCode` virtual method (Delphi 2009+) |
-| -36 | `vmtToString` | `ToString` virtual method (Delphi 2009+) |
-| -32 | `vmtSafeCallException` | `SafeCallException` virtual method |
-| -28 | `vmtAfterConstruction` | `AfterConstruction` virtual method |
-| -24 | `vmtBeforeDestruction` | `BeforeDestruction` virtual method |
-| -20 | `vmtDispatch` | `Dispatch` virtual method |
-| -16 | `vmtDefaultHandler` | `DefaultHandler` virtual method |
-| -12 | `vmtNewInstance` | `NewInstance` virtual method |
-| -8  | `vmtFreeInstance` | `FreeInstance` virtual method |
-| -4  | `vmtDestroy` | `Destroy` virtual method |
-| 0+  | User virtual method pointers | Code pointers |
+| Entry | Win32 Offset | Win64 Offset | Field | Type |
+|-------|-------------|-------------|-------|------|
+| 1 | -88 | -176 | `vmtSelfPtr` | Pointer to VMT itself |
+| 2 | -84 | -168 | `vmtIntfTable` | Pointer to interface table |
+| 3 | -80 | -160 | `vmtAutoTable` | Automation info |
+| 4 | -76 | -152 | `vmtInitTable` | Field initialization table |
+| 5 | -72 | -144 | `vmtTypeInfo` | RTTI pointer |
+| 6 | -68 | -136 | `vmtFieldTable` | Published field table |
+| 7 | -64 | -128 | `vmtMethodTable` | Published method table |
+| 8 | -60 | -120 | `vmtDynamicTable` | Dynamic method table |
+| 9 | -56 | -112 | `vmtClassName` | Pointer to class name (ShortString) |
+| 10 | -52 | -104 | `vmtInstanceSize` | Instance size (NativeInt) |
+| 11 | -48 | -96 | `vmtParent` | Pointer to parent VMT |
+| 12 | -44 | -88 | `vmtEquals` | `Equals` virtual method (Delphi 2009+) |
+| 13 | -40 | -80 | `vmtGetHashCode` | `GetHashCode` virtual method (Delphi 2009+) |
+| 14 | -36 | -72 | `vmtToString` | `ToString` virtual method (Delphi 2009+) |
+| 15 | -32 | -64 | `vmtSafeCallException` | `SafeCallException` virtual method |
+| 16 | -28 | -56 | `vmtAfterConstruction` | `AfterConstruction` virtual method |
+| 17 | -24 | -48 | `vmtBeforeDestruction` | `BeforeDestruction` virtual method |
+| 18 | -20 | -40 | `vmtDispatch` | `Dispatch` virtual method |
+| 19 | -16 | -32 | `vmtDefaultHandler` | `DefaultHandler` virtual method |
+| 20 | -12 | -24 | `vmtNewInstance` | `NewInstance` virtual method |
+| 21 | -8  | -16 | `vmtFreeInstance` | `FreeInstance` virtual method |
+| 22 | -4  | -8  | `vmtDestroy` | `Destroy` virtual method |
+| — | 0+  | 0+  | User virtual method pointers | Code pointers |
 
-(Exact offsets are platform-dependent; shown for Win32/Delphi 13.1 Florence. On Win64, entries that are pointers or `NativeInt` values occupy 8 bytes instead of 4, so the total size of the negative-offset metadata region differs from a simple doubling of Win32 offsets. Consult the `System` unit source for the actual `vmt*` constants on each target platform.)
+Win64 offsets are exactly `Win32_offset * 2` because every entry is a pointer or `NativeInt`, which is 8 bytes on Win64 vs 4 on Win32. The symbolic formula is: `offset = -(EntryCount - Index + 1) * SizeOf(Pointer)`. Consult the `System` unit source for the definitive `vmt*` constants on each target platform.
 
 ### F.3 Dynamic Array Memory Layout
 
