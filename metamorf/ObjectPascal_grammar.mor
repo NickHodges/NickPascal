@@ -279,6 +279,14 @@ grammar {
     parse expr -> @right;
   }
 
+  // Set non-membership: not in (precedence 10, Delphi 13+)
+  // Parsed as a two-token operator: 'not' followed immediately by 'in'.
+  rule expr.not_in precedence left 10 {
+    expect keyword.not;
+    expect keyword.in;
+    parse expr -> @right;
+  }
+
   // Type test: is (precedence 10)
   rule expr.is precedence left 10 {
     expect keyword.is;
