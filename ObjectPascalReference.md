@@ -111,7 +111,7 @@ White space (spaces U+0020, horizontal tabs U+0009, and line terminators) serves
 ### 1.4 Identifiers
 
 ```
-IDENTIFIER = LETTER , { LETTER | DIGIT | '_' } ;
+IDENTIFIER = LETTER { LETTER | DIGIT } ;
 LETTER     = 'A'..'Z' | 'a'..'z' | '_' ;
 DIGIT      = '0'..'9' ;
 ```
@@ -123,6 +123,7 @@ Rules:
 3. The **significant length** of an identifier is 255 characters. Characters beyond position 255 are ignored for purposes of identity comparison.
 4. An identifier that matches a **reserved word** ([§1.5](#15-reserved-words)) cannot be used as a user-defined identifier unless prefixed with `&` (the escaped identifier prefix). The `&` is not part of the identifier name; `&begin` refers to an identifier named `begin`.
 5. Identifiers matching **directive words** ([§1.6](#16-directive-words)) may be used as user-defined identifiers, but this is discouraged.
+6. **Lexer disambiguation for `&`**: When the lexer encounters `&`, it inspects the immediately following character. If the next character is a letter or `_`, the `&` is an escaped identifier prefix and the rest is scanned as an identifier (rule 4 above). If the next character is an octal digit (`0`–`7`), the `&` begins an `OCTAL_LITERAL` ([§1.7.1](#171-integer-literals)). No other character may follow `&`.
 
 #### 1.4.1 Qualified Identifiers
 
