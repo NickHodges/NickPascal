@@ -2392,8 +2392,8 @@ Class variables are shared among all instances (like static fields in other lang
 
 ```
 METHOD_DECLARATION = METHOD_HEADER ';' [ DIRECTIVE_LIST ';' ] [ METHOD_BODY ';' ] ;
-METHOD_HEADER = ( 'procedure' | 'function' | 'constructor' | 'destructor' )
-                [ 'class' ] IDENT [ GENERIC_PARAMS ] [ FORMAL_PARAMS ]
+METHOD_HEADER = [ 'class' ] ( 'procedure' | 'function' | 'constructor' | 'destructor' )
+                IDENT [ GENERIC_PARAMS ] [ FORMAL_PARAMS ]
                 [ ':' RETURN_TYPE ] ;
 ```
 
