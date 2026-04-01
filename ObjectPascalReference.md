@@ -1261,7 +1261,8 @@ DECLARATION_SECTION = LABEL_SECTION
                     | VAR_SECTION
                     | THREADVAR_SECTION
                     | PROCEDURE_DECLARATION
-                    | FUNCTION_DECLARATION ;
+                    | FUNCTION_DECLARATION
+                    | EXPORTS_CLAUSE ;
 ```
 
 There is no required ordering (unlike original Pascal which required `label`, `const`, `type`, `var`, then procedures).
