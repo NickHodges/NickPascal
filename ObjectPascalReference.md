@@ -780,7 +780,7 @@ type
 
 The code page is part of the type's identity at compile time. The runtime performs automatic code page conversion when assigning between `AnsiString` types with different code pages, and when converting to/from `UnicodeString`.
 
-`RawByteString` (code page $FFFF) is a special "no conversion" type: it accepts any `AnsiString` without triggering code page conversion. It should only be used for parameters, never for variables.
+`RawByteString` (code page $FFFF) is a special "no conversion" type: it accepts any `AnsiString` without triggering code page conversion. It is primarily intended for use as a **parameter type** in routines that must accept any `AnsiString` encoding without conversion; using `RawByteString` for local variables or fields is not recommended because the code page is unknown and operations that inspect the code page may behave unexpectedly.
 
 #### 3.5.3 ShortString
 
