@@ -4314,6 +4314,34 @@ Rules:
 | `VERxxx` | Compiler version (e.g., `VER370` for Delphi 13, `VER360` for Delphi 12) |
 | `CompilerVersion` | Compiler version as float (e.g., 37.0 for Delphi 13) |
 
+**CompilerVersion / VERxxx History:**
+
+| Delphi Version | CompilerVersion | VERxxx | Product Name |
+|----------------|-----------------|--------|-------------|
+| Delphi 7 | 15.0 | VER150 | |
+| Delphi 2005 | 17.0 | VER170 | |
+| Delphi 2006 | 18.0 | VER180 | |
+| Delphi 2007 | 18.5 | VER185 | |
+| Delphi 2009 | 20.0 | VER200 | |
+| Delphi 2010 | 21.0 | VER210 | |
+| Delphi XE | 22.0 | VER220 | |
+| Delphi XE2 | 23.0 | VER230 | |
+| Delphi XE3 | 24.0 | VER240 | |
+| Delphi XE4 | 25.0 | VER250 | |
+| Delphi XE5 | 26.0 | VER260 | |
+| Delphi XE6 | 27.0 | VER270 | |
+| Delphi XE7 | 28.0 | VER280 | |
+| Delphi XE8 | 29.0 | VER290 | |
+| Delphi 10 Seattle | 30.0 | VER300 | |
+| Delphi 10.1 Berlin | 31.0 | VER310 | |
+| Delphi 10.2 Tokyo | 32.0 | VER320 | |
+| Delphi 10.3 Rio | 33.0 | VER330 | |
+| Delphi 10.4 Sydney | 34.0 | VER340 | |
+| Delphi 11 Alexandria | 35.0 | VER350 | |
+| Delphi 12 Athens | 36.0 | VER360 | |
+| Delphi 13 Athens | 37.0 | VER370 | |
+| Delphi 13.1 Florence | 37.1 | VER371 | |
+
 #### 17.4.2 Conditional Expressions (`{$IF}`)
 
 `{$IF}` supports full constant expressions:
