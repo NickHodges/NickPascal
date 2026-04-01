@@ -3635,7 +3635,8 @@ Rules:
 1. The expression must evaluate to an object (class instance). By convention, a new exception object is created at the `raise` site.
 2. After `raise`, control transfers to the nearest enclosing exception handler.
 3. A bare `raise` (no expression) in an `except` block re-raises the current exception without destroying it.
-4. The `at` clause specifies a code address for the exception's origin (for debugging).
+4. A bare `raise` outside an `except` block is a **compile-time error** — there is no current exception to re-raise.
+5. The `at` clause specifies a code address for the exception's origin (for debugging).
 
 ### 13.3 The `try..except` Statement
 
