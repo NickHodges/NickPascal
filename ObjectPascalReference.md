@@ -844,6 +844,8 @@ DYNAMIC_ARRAY_TYPE = 'array' 'of' BASE_TYPE ;
 
 Dynamic arrays are **reference-counted**, heap-allocated. They are **0-based** (the first element is index 0). Unlike strings, dynamic arrays do **not** use copy-on-write; assigning one dynamic array variable to another shares the same data.
 
+> **`SetLength` and shared arrays:** Although assignment does not copy the data, `SetLength` on a dynamic array variable detects when the reference count is greater than 1 (i.e., the array is shared). In that case, `SetLength` makes a private copy of the existing elements before resizing, effectively performing a copy-on-write at resize time. Code that relies on two variables aliasing the same array should not call `SetLength` through either variable without accounting for this behavior.
+
 Memory layout:
 
 ```
