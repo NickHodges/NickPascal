@@ -4119,13 +4119,13 @@ Directives fall into three categories:
 | `{$P+}` / `{$OPENSTRINGS ON}` | ON | Open string parameters (legacy) |
 | `{$Q-}` / `{$OVERFLOWCHECKS OFF}` | OFF | Integer overflow checking |
 | `{$R-}` / `{$RANGECHECKS OFF}` | OFF | Range checking |
-| `{$T-}` / `{$TYPEDADDRESS OFF}` | OFF | `@` returns typed pointer |
+| `{$T-}` / `{$TYPEDADDRESS OFF}` | OFF | `{$T+}`: `@` returns typed `^T`; `{$T-}` (default): `@` returns untyped `Pointer` |
 | `{$U-}` / `{$SAFEDIVIDE OFF}` | OFF | Safe FDIV (Pentium bug workaround) |
 | `{$V+}` / `{$VARSTRINGCHECKS ON}` | ON | Short string length checking |
 | `{$W-}` / `{$STACKFRAMES OFF}` | OFF | Always generate stack frames |
 | `{$X+}` / `{$EXTENDEDSYNTAX ON}` | ON | Extended syntax (function as procedure) |
 | `{$Z1}` / `{$MINENUMSIZE 1}` | 1 | Minimum enum size |
-| `{$POINTERMATH OFF}` | OFF | Enable pointer arithmetic |
+| `{$POINTERMATH OFF}` | OFF | When ON: enables pointer arithmetic (`P + N`, `P[N]`); when OFF (default): pointer arithmetic is not permitted |
 | `{$SCOPEDENUMS OFF}` | OFF | Scoped enumerations |
 | `{$ZEROBASEDSTRINGS OFF}` | OFF | 0-based string indexing |
 | `{$METHODINFO OFF}` | OFF | Generate method RTTI |
