@@ -243,7 +243,7 @@ Rules:
 
 #### 1.8.1 Multi-Line String Literals
 
-As of Delphi 12, multi-line string literals are supported using the triple-quoted syntax:
+As of Delphi 11, multi-line string literals are supported using the triple-quoted syntax:
 
 ```
 MULTILINE_STRING = "'''" { ANY_CHAR } "'''" ;
