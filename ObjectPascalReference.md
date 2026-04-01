@@ -2501,6 +2501,38 @@ Rules:
    d. `FreeInstance` deallocates the memory.
 4. Destructors should be tolerant of partially constructed objects (fields may be zero/nil if the constructor didn't complete).
 
+### 8.7.1 Class Constructors and Class Destructors
+
+Class constructors and class destructors are **class-level** (not instance-level) special methods that execute automatically during unit initialization and finalization:
+
+```pascal
+type
+  TMyClass = class
+    class var FInstance: TMyClass;
+    class constructor Create;
+    class destructor Destroy;
+  end;
+
+class constructor TMyClass.Create;
+begin
+  FInstance := TMyClass.Create;  // instance constructor — different from class constructor
+end;
+
+class destructor TMyClass.Destroy;
+begin
+  FInstance.Free;
+end;
+```
+
+Rules:
+
+1. **Syntax**: `class constructor Ident;` and `class destructor Ident;`. The name is conventionally `Create`/`Destroy` but any valid identifier is accepted. They take no parameters.
+2. **Execution timing**: A class constructor runs during unit initialization (similar to an `initialization` section). A class destructor runs during unit finalization (similar to a `finalization` section). The exact execution order relative to other units follows the standard unit initialization order (dependency-first).
+3. **No explicit calls**: Class constructors and class destructors cannot be called explicitly. They are invoked automatically by the RTL.
+4. **No inheritance interaction**: `class constructor` and `class destructor` are not virtual and are not inherited — each class in the hierarchy may declare its own, and each runs independently.
+5. **Use cases**: Lazy initialization of class-level state (`class var` fields), registering/unregistering a class in a factory or class registry, acquiring/releasing shared resources.
+6. **Exception safety**: An exception in a class constructor terminates the application during startup. An exception in a class destructor during shutdown is silently swallowed on most platforms.
+
 ### 8.8 Virtual Methods and Polymorphism
 
 #### 8.8.1 The `virtual` Directive
