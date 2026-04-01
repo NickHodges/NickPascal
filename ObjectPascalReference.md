@@ -4,7 +4,7 @@
 
 ### Version 1.1 — March 2026
 
-> **Version numbering note:** "Delphi 13" and "Delphi 13.1" refer to the same product family. Delphi 13 (code name Athens) was the initial release; Delphi 13.1 (code name Florence) is its first point update. Features tagged "Delphi 13+" in this specification are available in both releases. Features tagged "Delphi 13.1+" were introduced in the Florence update and are not available in the initial 13.0 release.
+> **Version numbering note:** "Delphi 13" and "Delphi 13.1" refer to the same product family (code name Florence). Delphi 13.0 was the initial release; Delphi 13.1 is its first point update. Features tagged "Delphi 13+" in this specification are available in both releases. Features tagged "Delphi 13.1+" were introduced in the 13.1 update and are not available in the initial 13.0 release. (The preceding version, Delphi 12, carried the code name Athens.)
 
 ---
 
@@ -4339,8 +4339,10 @@ Rules:
 | Delphi 10.4 Sydney | 34.0 | VER340 | |
 | Delphi 11 Alexandria | 35.0 | VER350 | |
 | Delphi 12 Athens | 36.0 | VER360 | |
-| Delphi 13 Athens | 37.0 | VER370 | |
+| Delphi 13 Florence | 37.0 | VER370 | |
 | Delphi 13.1 Florence | 37.1 | VER371 | |
+
+For a comprehensive version reference including point releases, build numbers, and package versions, see [omonien/Delphi-Version-Information](https://github.com/omonien/Delphi-Version-Information).
 
 #### 17.4.2 Conditional Expressions (`{$IF}`)
 
