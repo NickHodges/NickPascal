@@ -2083,6 +2083,8 @@ with A, B do   // equivalent to: with A do with B do
 
 **Caution:** `with` can cause subtle bugs when the type of the designator changes (e.g., a field is added or renamed). Many style guides discourage its use. The compiler shall generate the same code with or without `with`.
 
+**Interaction with inline variable declarations (Delphi 10.3+):** An inline variable declared inside a `with` block is subject to the same scope injection as any other identifier. If the inline variable's name collides with a member of the `with` designator, the inline declaration introduces a new local that shadows the member from that point forward. Conversely, an inline variable declared *before* a `with` statement may itself be shadowed by a member of the `with` designator. The compiler does not warn about either case. For clarity, avoid using `with` together with inline variable names that could collide with members of the designator.
+
 ### 6.15 The `raise` Statement
 
 See [Chapter 13](#chapter-13-exception-handling) (Exception Handling).
