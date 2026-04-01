@@ -4805,8 +4805,8 @@ ProcedureDecl     = ProcHeader ';' [ DirectiveList ';' ]
 FunctionDecl      = FuncHeader ';' [ DirectiveList ';' ]
                     ( Block ';' | ExternalDir ';' | 'forward' ';' ) ;
 
-ProcHeader        = [ 'class' ] 'procedure' Ident [ GenericParams ] [ FormalParams ] ;
-FuncHeader        = [ 'class' ] 'function' Ident [ GenericParams ] [ FormalParams ]
+ProcHeader        = [ 'class' ] 'procedure' QualifiedIdent [ GenericParams ] [ FormalParams ] ;
+FuncHeader        = [ 'class' ] 'function' QualifiedIdent [ GenericParams ] [ FormalParams ]
                     ':' Type ;
 
 MethodDecl        = MethodHeader ';' [ DirectiveList ';' ] ;
@@ -4841,6 +4841,21 @@ ExportsEntry      = Ident [ FormalParams ]
                     [ 'name' StringLiteral ] [ 'index' IntegerLiteral ]
                     [ 'resident' ] ;
 ```
+
+> **Note on `QualifiedIdent` in `ProcHeader`/`FuncHeader`**: The `QualifiedIdent` form (`ClassName.MethodName`) is required when implementing a method body outside the class body in the implementation section. When declaring a new standalone routine, `QualifiedIdent` degenerates to a plain `Ident`.
+>
+> Example:
+> ```pascal
+> procedure TMyClass.DoSomething;           // QualifiedIdent: TMyClass.DoSomething
+> begin
+>   // implementation
+> end;
+>
+> procedure StandaloneProc;                 // plain Ident
+> begin
+>   // implementation
+> end;
+> ```
 
 ### C.5 Generics
 
