@@ -171,15 +171,19 @@ tokens {
   token keyword.true           = "true";
   token keyword.false          = "false";
 
-  // WriteLn/Write (special handling for C++ output)
-  token keyword.writeln        = "writeln";
-  token keyword.write_proc     = "write";
+  // WriteLn/Write are predefined procedures (not reserved words per §1.5/§1.6).
+  // They are recognised as identifiers and resolved through normal name lookup.
+  // The grammar handles them via stmt.writeln / stmt.write_stmt rule checks on
+  // identifier tokens whose text matches "writeln" or "write".
+  // NOTE: NOT declared as keyword.* tokens — using "write" as a field/variable
+  //   name (e.g. TWriter.write) must remain valid.
 
-  // Result (implicit function return variable)
-  token keyword.result         = "result";
-
-  // Self reference
-  token keyword.self           = "self";
+  // Result is a context-sensitive pseudo-identifier available only inside
+  // function bodies (§7.3).  Self is a context-sensitive pseudo-identifier
+  // available only inside method bodies (§8.5.1).  Both are resolved during
+  // semantic analysis, not lexing, so they must NOT be universal keywords.
+  // NOTE: NOT declared as keyword.* tokens — both can legally be used as
+  //   identifiers outside their special contexts.
 
   // =========================================================================
   //  OPERATORS

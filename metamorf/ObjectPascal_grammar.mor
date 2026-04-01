@@ -222,9 +222,9 @@ grammar {
     parse expr -> @false_expr;
   }
 
-  // Self reference
+  // Self reference — matched on an identifier token whose text == "self"
   rule expr.self {
-    expect keyword.self;
+    consume identifier -> @self_token;
   }
 
   // =========================================================================
@@ -2504,9 +2504,11 @@ grammar {
     requireToken("delimiter.semicolon");
   }
 
-  // WriteLn(args) — special handling for C++ output
+  // WriteLn(args) — special handling for C++ output.
+  // WriteLn is a predefined procedure, resolved via identifier lookup.
+  // The rule matches when the identifier token text is "writeln".
   rule stmt.writeln {
-    expect keyword.writeln;
+    consume identifier -> @proc_name; // matches "writeln"
     let nd = getResultNode();
     if matchToken("delimiter.lparen") {
       if not checkToken("delimiter.rparen") {
@@ -2518,8 +2520,9 @@ grammar {
   }
 
   // Write(args)
+  // Write is a predefined procedure, resolved via identifier lookup.
   rule stmt.write_stmt {
-    expect keyword.write_proc;
+    consume identifier -> @proc_name; // matches "write"
     let nd = getResultNode();
     if matchToken("delimiter.lparen") {
       if not checkToken("delimiter.rparen") {
