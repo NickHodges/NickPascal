@@ -1460,8 +1460,11 @@ FACTOR = DESIGNATOR [ '(' EXPR_LIST ')' ]
        | '(' EXPRESSION ')'
        | SET_CONSTRUCTOR
        | INHERITED_EXPR
-       | VALUE_TYPE_CONSTRUCTOR ;
+       | ANONYMOUS_METHOD
+       | TYPE_IDENT '(' EXPRESSION ')' (* value type cast *) ;
 ```
+
+> **Disambiguation: `if` as expression vs. statement.** When `if` appears in a position where an **expression** is expected (right-hand side of `:=`, function argument, etc.), the compiler parses it as a `CONDITIONAL_EXPR`. When `if` appears as a top-level **statement**, it is parsed as an `IF_STMT` ([§6.5](#65-the-if-statement)). The syntactic context — expression vs. statement position — determines which production applies. A parser must therefore track whether it is currently parsing an expression or a statement before dispatching on the `if` token.
 
 ### 5.2 Operator Precedence
 
