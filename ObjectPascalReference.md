@@ -4,6 +4,8 @@
 
 ### Version 1.1 — March 2026
 
+> **Version numbering note:** "Delphi 13" and "Delphi 13.1" refer to the same product family. Delphi 13 (code name Athens) was the initial release; Delphi 13.1 (code name Florence) is its first point update. Features tagged "Delphi 13+" in this specification are available in both releases. Features tagged "Delphi 13.1+" were introduced in the Florence update and are not available in the initial 13.0 release.
+
 ---
 
 ## Document Conventions
