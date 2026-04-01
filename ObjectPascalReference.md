@@ -882,7 +882,7 @@ Within the procedure, `Low(Arr)` is always 0 and `High(Arr)` is `Length - 1`. Op
 
 **Passing rules:**
 - A static array `A: array[5..10] of Integer` may be passed to an open array parameter directly.
-- A dynamic array `D: TArray<Integer>` may also be passed directly.
+- A dynamic array `D: TArray<Integer>` may also be passed directly. `TArray<T>` (declared in `System` as `array of T`) is fully compatible with open array parameters of the same element type. This is the primary mechanism for passing generic collection contents to non-generic routines.
 - A typed constant array is acceptable.
 
 **Temporary array creation.** An array literal (bracket construct) may be passed directly at the call site:
