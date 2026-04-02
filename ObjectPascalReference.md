@@ -246,19 +246,22 @@ Rules:
 
 #### 1.8.1 Multi-Line String Literals
 
-As of Delphi 11, multi-line string literals are supported using the triple-quoted syntax:
+As of Delphi 11, multi-line string literals are supported using a delimiter of any odd number of single-quote characters ≥ 3. The most common form uses triple quotes (`'''`), but five (`'''''`), seven (`'''''''`), or any higher odd count may be used. This allows embedding triple quotes (or any shorter odd-quoted sequence) within the string literal.
 
 ```
-MULTILINE_STRING = "'''" { ANY_CHAR } "'''" ;
+MULTILINE_STRING = ODD_QUOTES { ANY_CHAR } ODD_QUOTES ;
+ODD_QUOTES       = "'''" | "'''''" | "'''''''" | ... ;  (* any odd number of quotes ≥ 3 *)
 ```
 
 Rules:
 
-1. Everything between the opening `'''` and closing `'''` is part of the string, including line breaks.
-2. The opening `'''` must be followed by a line terminator; the content begins on the next line.
-3. The closing `'''` must appear on its own line, preceded only by optional whitespace.
-4. The leading whitespace of the closing `'''` line determines the *indentation prefix*. This prefix is stripped from each content line.
-5. The resulting string uses the platform's native line ending.
+1. The opening and closing delimiters must use the **same** number of quote characters.
+2. Everything between the opening and closing delimiters is part of the string, including line breaks.
+3. The opening delimiter must be followed by a line terminator; the content begins on the next line.
+4. The closing delimiter must appear on its own line, preceded only by optional whitespace.
+5. The leading whitespace of the closing delimiter line determines the *indentation prefix*. This prefix is stripped from each content line.
+6. The resulting string uses the platform's native line ending.
+7. Using a delimiter with more quotes allows the string body to contain sequences of fewer quotes. For example, a five-quote delimiter (`'''''`) allows triple quotes (`'''`) to appear in the string content.
 
 ### 1.9 Comments
 
