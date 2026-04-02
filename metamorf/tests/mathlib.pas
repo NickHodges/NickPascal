@@ -12,6 +12,9 @@ unit MathLib;
 
 interface
 
+uses
+  SysUtils;
+
 const
   E = 2.71828182;
 

@@ -222,10 +222,10 @@ grammar {
     parse expr -> @false_expr;
   }
 
-  // Self reference
-  rule expr.self {
-    expect keyword.self;
-  }
+  // 'Self' is a context-sensitive pseudo-identifier.  It is recognised during
+  // semantic analysis (pass 2) as referring to the current method's instance,
+  // not during parsing.  It is parsed as a plain identifier by the
+  // Designator rule and requires no dedicated grammar rule.
 
   // =========================================================================
   //  INFIX EXPRESSION RULES
@@ -275,6 +275,14 @@ grammar {
 
   // Set membership: in (precedence 10)
   rule expr.in precedence left 10 {
+    expect keyword.in;
+    parse expr -> @right;
+  }
+
+  // Set non-membership: not in (precedence 10, Delphi 13+)
+  // Parsed as a two-token operator: 'not' followed immediately by 'in'.
+  rule expr.not_in precedence left 10 {
+    expect keyword.not;
     expect keyword.in;
     parse expr -> @right;
   }
@@ -2460,16 +2468,33 @@ grammar {
   rule stmt.ident_stmt {
     let lhs = parseExpr(0);
     let nd = getResultNode();
-    if matchToken("op.assign") {
+    // Detect WriteLn/Write calls and produce the dedicated AST node kinds
+    // (stmt.writeln / stmt.write_stmt) expected by the emitter.
+    // Previously these were dispatched via keyword tokens; now they are
+    // resolved by checking the identifier text of a call expression.
+    let lhsName = getAttr(lhs, "name");
+    if lhsName == "writeln" or lhsName == "WriteLn" or lhsName == "WRITELN" {
+      // Re-use the subtree already captured in lhs; re-tag the result node.
+      setNodeKind(nd, "stmt.writeln");
+      let args = getAttr(lhs, "raw_args");
+      setAttr(nd, "raw_args", args);
+      requireToken("delimiter.semicolon");
+    } else if lhsName == "write" or lhsName == "Write" or lhsName == "WRITE" {
+      setNodeKind(nd, "stmt.write_stmt");
+      let args = getAttr(lhs, "raw_args");
+      setAttr(nd, "raw_args", args);
+      requireToken("delimiter.semicolon");
+    } else if matchToken("op.assign") {
       let rhs = parseExpr(0);
       setAttr(nd, "is_assign", "true");
       addChild(nd, lhs);
       addChild(nd, rhs);
+      requireToken("delimiter.semicolon");
     } else {
       setAttr(nd, "is_assign", "false");
       addChild(nd, lhs);
+      requireToken("delimiter.semicolon");
     }
-    requireToken("delimiter.semicolon");
   }
 
   // Inline var declaration (statement-level): var X: Type := Expr;
@@ -2504,31 +2529,14 @@ grammar {
     requireToken("delimiter.semicolon");
   }
 
-  // WriteLn(args) — special handling for C++ output
-  rule stmt.writeln {
-    expect keyword.writeln;
-    let nd = getResultNode();
-    if matchToken("delimiter.lparen") {
-      if not checkToken("delimiter.rparen") {
-        setAttr(nd, "raw_args", collectUntil("delimiter.rparen"));
-      }
-      expect delimiter.rparen;
-    }
-    expect delimiter.semicolon;
-  }
+  // WriteLn(args) and Write(args) are handled inside stmt.ident_stmt by
+  // checking the identifier text of the call expression.  The dedicated
+  // stmt.writeln / stmt.write_stmt AST node kinds are still produced so that
+  // the emitter layer (ObjectPascal_emitters.mor) continues to work without
+  // change.  No standalone grammar rules are required here.
 
-  // Write(args)
-  rule stmt.write_stmt {
-    expect keyword.write_proc;
-    let nd = getResultNode();
-    if matchToken("delimiter.lparen") {
-      if not checkToken("delimiter.rparen") {
-        setAttr(nd, "raw_args", collectUntil("delimiter.rparen"));
-      }
-      expect delimiter.rparen;
-    }
-    expect delimiter.semicolon;
-  }
+  // 'Self' is resolved as a plain identifier during semantic analysis (pass 2).
+  // No special grammar rule is needed.
 
   // =========================================================================
   //  STATEMENT RULES — EXPORTS

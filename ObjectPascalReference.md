@@ -4,6 +4,8 @@
 
 ### Version 1.1 — March 2026
 
+> **Version numbering note:** "Delphi 13" and "Delphi 13.1" refer to the same product family (code name Florence). Delphi 13.0 was the initial release; Delphi 13.1 is its first point update. Features tagged "Delphi 13+" in this specification are available in both releases. Features tagged "Delphi 13.1+" were introduced in the 13.1 update and are not available in the initial 13.0 release. (The preceding version, Delphi 12, carried the code name Athens.)
+
 ---
 
 ## Document Conventions
@@ -111,7 +113,7 @@ White space (spaces U+0020, horizontal tabs U+0009, and line terminators) serves
 ### 1.4 Identifiers
 
 ```
-IDENTIFIER = LETTER , { LETTER | DIGIT | '_' } ;
+IDENTIFIER = LETTER { LETTER | DIGIT } ;
 LETTER     = 'A'..'Z' | 'a'..'z' | '_' ;
 DIGIT      = '0'..'9' ;
 ```
@@ -123,6 +125,7 @@ Rules:
 3. The **significant length** of an identifier is 255 characters. Characters beyond position 255 are ignored for purposes of identity comparison.
 4. An identifier that matches a **reserved word** ([§1.5](#15-reserved-words)) cannot be used as a user-defined identifier unless prefixed with `&` (the escaped identifier prefix). The `&` is not part of the identifier name; `&begin` refers to an identifier named `begin`.
 5. Identifiers matching **directive words** ([§1.6](#16-directive-words)) may be used as user-defined identifiers, but this is discouraged.
+6. **Lexer disambiguation for `&`**: When the lexer encounters `&`, it inspects the immediately following character. If the next character is a letter or `_`, the `&` is an escaped identifier prefix and the rest is scanned as an identifier (rule 4 above). If the next character is an octal digit (`0`–`7`), the `&` begins an `OCTAL_LITERAL` ([§1.7.1](#171-integer-literals)). No other character may follow `&`.
 
 #### 1.4.1 Qualified Identifiers
 
@@ -222,10 +225,8 @@ Floating-point literals are of type `Extended` (80-bit on Win32, 64-bit/`Double`
 ### 1.8 String Literals
 
 ```
-STRING_LITERAL   = QUOTED_STRING { CHAR_LITERAL QUOTED_STRING }
-                 | CHAR_LITERAL { QUOTED_STRING CHAR_LITERAL }
-                 | QUOTED_STRING
-                 | CHAR_LITERAL ;
+STRING_LITERAL   = STRING_PART { STRING_PART } ;
+STRING_PART      = QUOTED_STRING | CHAR_LITERAL ;
 
 QUOTED_STRING    = "'" { STRING_CHAR | "''" } "'" ;
 STRING_CHAR      = (* any character except "'" and line terminators *) ;
@@ -244,7 +245,7 @@ Rules:
 
 #### 1.8.1 Multi-Line String Literals
 
-As of Delphi 12, multi-line string literals are supported using the triple-quoted syntax:
+As of Delphi 11, multi-line string literals are supported using the triple-quoted syntax:
 
 ```
 MULTILINE_STRING = "'''" { ANY_CHAR } "'''" ;
@@ -781,7 +782,7 @@ type
 
 The code page is part of the type's identity at compile time. The runtime performs automatic code page conversion when assigning between `AnsiString` types with different code pages, and when converting to/from `UnicodeString`.
 
-`RawByteString` (code page $FFFF) is a special "no conversion" type: it accepts any `AnsiString` without triggering code page conversion. It should only be used for parameters, never for variables.
+`RawByteString` (code page $FFFF) is a special "no conversion" type: it accepts any `AnsiString` without triggering code page conversion. It is primarily intended for use as a **parameter type** in routines that must accept any `AnsiString` encoding without conversion; using `RawByteString` for local variables or fields is not recommended because the code page is unknown and operations that inspect the code page may behave unexpectedly.
 
 #### 3.5.3 ShortString
 
@@ -845,6 +846,8 @@ DYNAMIC_ARRAY_TYPE = 'array' 'of' BASE_TYPE ;
 
 Dynamic arrays are **reference-counted**, heap-allocated. They are **0-based** (the first element is index 0). Unlike strings, dynamic arrays do **not** use copy-on-write; assigning one dynamic array variable to another shares the same data.
 
+> **`SetLength` and shared arrays:** Although assignment does not copy the data, `SetLength` on a dynamic array variable detects when the reference count is greater than 1 (i.e., the array is shared). In that case, `SetLength` makes a private copy of the existing elements before resizing, effectively performing a copy-on-write at resize time. Code that relies on two variables aliasing the same array should not call `SetLength` through either variable without accounting for this behavior.
+
 Memory layout:
 
 ```
@@ -879,7 +882,7 @@ Within the procedure, `Low(Arr)` is always 0 and `High(Arr)` is `Length - 1`. Op
 
 **Passing rules:**
 - A static array `A: array[5..10] of Integer` may be passed to an open array parameter directly.
-- A dynamic array `D: TArray<Integer>` may also be passed directly.
+- A dynamic array `D: TArray<Integer>` may also be passed directly. `TArray<T>` (declared in `System` as `array of T`) is fully compatible with open array parameters of the same element type. This is the primary mechanism for passing generic collection contents to non-generic routines.
 - A typed constant array is acceptable.
 
 **Temporary array creation.** An array literal (bracket construct) may be passed directly at the call site:
@@ -999,6 +1002,8 @@ Set operators:
 | `in`     | Membership test |
 | `Include(S, E)` | Add element (intrinsic procedure) |
 | `Exclude(S, E)` | Remove element (intrinsic procedure) |
+
+**`packed set`:** The `packed` modifier may precede `set of`. In Delphi's implementation, sets are already stored as bit vectors (the densest possible representation), so `packed set of` produces the same layout and size as a plain `set of`. The `packed` keyword is accepted for compatibility with ISO Pascal and Turbo Pascal but has no practical effect on sets in Delphi. (This contrasts with `packed record` and `packed array`, where `packed` does change field/element alignment.)
 
 #### 3.6.4 File Types
 
@@ -1174,14 +1179,16 @@ Operations on variants are resolved at **runtime** using type coercion rules. If
 
 #### 3.9.1 Variant Conversion Rules
 
-When performing operations on variants, the compiler inserts runtime conversion calls. The conversion priority (highest to lowest):
+When performing operations on variants, the compiler inserts runtime conversion calls. The conversion priority applies in **arithmetic and comparison** contexts (highest to lowest):
 
 1. If both operands are the same type, no conversion occurs.
-2. If either operand is a `string`, the other is converted to `string`.
-3. If either operand is `Double` (or `Extended`), the other is converted to `Double`.
-4. If either operand is `Currency`, the other is converted to `Currency`.
-5. If either operand is `Int64`, the other is converted to `Int64`.
-6. Otherwise, both are converted to `Integer` (if they fit) or `Int64`.
+2. If either operand is `Double` (or `Extended`), the other is converted to `Double`.
+3. If either operand is `Currency`, the other is converted to `Currency`.
+4. If either operand is `Int64`, the other is converted to `Int64`.
+5. Otherwise, both are converted to `Integer` (if they fit) or `Int64`.
+6. String variants participate in arithmetic only after being converted to a numeric type; if the conversion fails (e.g., the string is not a valid number), `EVariantError` is raised.
+
+> **Note on string variants in arithmetic**: In arithmetic operations, numeric types take precedence over strings. `Variant(1) + Variant('2')` yields `3` (integer addition after converting `'2'` to `2`), **not** `'12'`. String concatenation of variants requires explicit use of the `+` operator when both operands hold string variants, or use of `VarToStr` to force string context.
 
 Assigning a `Variant` to a typed variable performs an implicit conversion. If the conversion is not possible, `EVariantError` is raised.
 
@@ -1258,8 +1265,11 @@ DECLARATION_SECTION = LABEL_SECTION
                     | VAR_SECTION
                     | THREADVAR_SECTION
                     | PROCEDURE_DECLARATION
-                    | FUNCTION_DECLARATION ;
+                    | FUNCTION_DECLARATION
+                    | EXPORTS_CLAUSE ;
 ```
+
+> **Note on `EXPORTS_CLAUSE`**: `exports` clauses are valid only in **library** projects (`.dll`/`.so`). They are a declaration-level construct that lists entry points to be exported from the compiled library. In unit `implementation` sections and `program` blocks, `exports` is not permitted.
 
 There is no required ordering (unlike original Pascal which required `label`, `const`, `type`, `var`, then procedures).
 
@@ -1284,7 +1294,7 @@ When no type is given, the constant's type is inferred from the expression. A ty
 
 ```pascal
 const
-  Pi = 3.14159265358979;          // inferred as Extended
+  Pi = 3.14159265358979;          // inferred as Extended (= Double on Win64)
   MaxItems: Integer = 100;        // typed constant (see [§4.3.2](#432-typed-constants-initialized-variables))
   AppName = 'MyApp';              // inferred as string
   Flags = [fsReadOnly, fsHidden]; // inferred as set
@@ -1365,6 +1375,7 @@ Restrictions:
 - **Dangerous with managed types.** Overlaying a managed type (string, interface, dynamic array) with an unmanaged alias bypasses reference-count logic, causing leaks or double-frees. Avoid `absolute` with any managed type.
 - **No lifetime tracking.** The compiler does not insert initialization or finalization for the aliasing variable; lifetime is entirely the programmer's responsibility.
 - **No range checking.** The alias variable may extend beyond the source variable's bounds without a compile-time error.
+- **Integer-literal form is obsolete.** The `absolute INTEGER_LITERAL` form, which maps a variable to a fixed memory address, originates from 16-bit real-mode DOS programming. On modern protected-mode and 64-bit platforms, writing to a hard-coded address causes an access violation. This form is accepted by the compiler for backward compatibility but should not be used in new code.
 
 #### 4.5.3 Inline Variable Declarations (Delphi 10.3+)
 
@@ -1384,6 +1395,20 @@ Rules:
 1. The scope of an inline variable extends from its declaration to the end of the innermost enclosing block.
 2. Type inference uses the same rules as `const` inference.
 3. Inline variables of managed types are finalized when they go out of scope.
+4. **Valid positions**: An inline variable declaration is valid only as a full statement in the statement list of a `begin..end` block. It may **not** appear as the single body of a structured statement. For example:
+   ```pascal
+   // INVALID — inline var cannot be the sole then-branch:
+   if Condition then
+     var X := 5;
+
+   // VALID — inside an explicit begin..end block:
+   if Condition then
+   begin
+     var X := 5;
+     WriteLn(X);
+   end;
+   ```
+   Similarly, inline variables are not valid as the single body of `while`, `repeat`, `for`, or `with` statements. Wrap such constructs in `begin..end` before using inline declarations inside them.
 
 #### 4.5.4 Inline Constant Declarations (Delphi 10.3+)
 
@@ -1461,8 +1486,11 @@ FACTOR = DESIGNATOR [ '(' EXPR_LIST ')' ]
        | '(' EXPRESSION ')'
        | SET_CONSTRUCTOR
        | INHERITED_EXPR
-       | VALUE_TYPE_CONSTRUCTOR ;
+       | ANONYMOUS_METHOD
+       | TYPE_IDENT '(' EXPRESSION ')' (* value type cast *) ;
 ```
+
+> **Disambiguation: `if` as expression vs. statement.** When `if` appears in a position where an **expression** is expected (right-hand side of `:=`, function argument, etc.), the compiler parses it as a `CONDITIONAL_EXPR`. When `if` appears as a top-level **statement**, it is parsed as an `IF_STMT` ([§6.5](#65-the-if-statement)). The syntactic context — expression vs. statement position — determines which production applies. A parser must therefore track whether it is currently parsing an expression or a statement before dispatching on the `if` token.
 
 ### 5.2 Operator Precedence
 
@@ -1615,6 +1643,8 @@ if Obj is not TMyClass then ...
 
 `is not` is the negation of `is`. It is equivalent to `not (Obj is TMyClass)` but avoids the need for parentheses and reads more naturally. The same rules as `is` apply — it works with class types and interfaces.
 
+**Parsing rule:** When the parser encounters `is` followed by `not`, it treats `is not` as a single compound relational operator (two tokens, one operator). The `not` token is consumed as part of `is not` and is **not** interpreted as a unary prefix operator. This is a context-specific parser rule: `not` is only absorbed into a compound operator when it immediately follows `is` in this position.
+
 #### 5.8.1b The `not in` Operator (Delphi 13+)
 
 ```pascal
@@ -1622,6 +1652,8 @@ if Ch not in ['a'..'z'] then ...
 ```
 
 `not in` is the negation of `in`. It is equivalent to `not (Ch in S)` but avoids the parentheses required by operator precedence. The left operand is an ordinal value; the right is a set.
+
+**Parsing rule:** `not in` is parsed as a compound infix operator at the same precedence as `in` (relational). When the parser has already parsed a left-hand operand and encounters `not` followed by `in`, it treats the pair as a single relational operator rather than interpreting `not` as a unary prefix starting a new sub-expression. This look-ahead applies only in infix position (i.e., after a complete left-hand expression); a `not` at the start of an expression is always the unary prefix operator.
 
 #### 5.8.2 The `as` Operator
 
@@ -1776,7 +1808,8 @@ Constant expressions may include:
 - Numeric, string, and boolean literals
 - Previously declared constants
 - Arithmetic, logical, and relational operators
-- Intrinsics: `Ord`, `Chr`, `Pred`, `Succ`, `High`, `Low`, `SizeOf`, `Length` (for static arrays and strings), `Abs`, `Round`, `Trunc`, `Odd`, `Lo`, `Hi`
+- Intrinsics: `Ord`, `Chr`, `Pred`, `Succ`, `High`, `Low`, `SizeOf`, `Length` (for static arrays and strings), `Abs`, `Odd`, `Lo`, `Hi`
+- `Round` and `Trunc` are evaluated by the compiler's constant folder in typed constant declarations and certain other contexts. They are **not** universally valid in all constant expression positions — for example, they cannot appear in case labels, subrange bounds, or property `default` values. Use them only where the compiler explicitly supports constant folding of floating-point results.
 - Typecast of constant values
 - String concatenation
 
@@ -1801,7 +1834,7 @@ The compiler recognizes certain function-like constructs as intrinsics that are 
 | `HasWeakRef(T)`  | True if T supports weak references                  |
 | `GetTypeKind(T)` | Returns the TTypeKind for T (resolved at compile time) |
 | `IsConstValue(X)` | True if X is a compile-time constant               |
-| `Assigned(P)`    | True if P is not nil (pointer, object, proc)        |
+| `Assigned(P)`    | True if P is not nil (pointer, object, proc, method reference) |
 | `Default(T)`     | Default (zero) value of type T                      |
 | `Assert(Cond [, Msg])` | Debug assertion                               |
 | `Inc(X [, N])`   | Increment ordinal or pointer                        |
@@ -1929,9 +1962,10 @@ Rules:
 2. The initial and final values are evaluated **once** before the loop begins.
 3. `to` increments the control variable; `downto` decrements it.
 4. If the initial value exceeds the final value (for `to`) or is less (for `downto`), the loop body does not execute.
-5. The control variable is **undefined** after the loop terminates normally.
-6. The loop body shall not modify the control variable.
-7. The control variable may be declared inline: `for var I := 0 to 10 do ...` (Delphi 10.3+).
+5. The control variable is **undefined** after the loop terminates normally (i.e., when the limit is reached).
+6. When the loop is exited via `break`, the control variable **retains its current value** at the time of exit. Code may inspect the control variable after a `break` to determine which iteration triggered the exit.
+7. The loop body shall not modify the control variable.
+8. The control variable may be declared inline: `for var I := 0 to 10 do ...` (Delphi 10.3+).
 
 #### 6.7.1 The `for..in` Statement
 
@@ -2002,7 +2036,7 @@ The statement list executes at least once. After each iteration, the expression 
 GOTO_STMT = 'goto' LABEL ;
 ```
 
-Jumps to the labeled statement. The label and the `goto` must be in the same block (procedure/function body). Jumping into or out of `try..finally` or `try..except` blocks is not permitted and results in undefined behavior.
+Jumps to the labeled statement. The label and the `goto` must be in the same block (procedure/function body). Jumping into or out of `try..finally` or `try..except` blocks is a **compile-time error**.
 
 ### 6.11 The `Break` and `Continue` Intrinsics
 
@@ -2050,6 +2084,8 @@ with A, B do   // equivalent to: with A do with B do
 ```
 
 **Caution:** `with` can cause subtle bugs when the type of the designator changes (e.g., a field is added or renamed). Many style guides discourage its use. The compiler shall generate the same code with or without `with`.
+
+**Interaction with inline variable declarations (Delphi 10.3+):** An inline variable declared inside a `with` block is subject to the same scope injection as any other identifier. If the inline variable's name collides with a member of the `with` designator, the inline declaration introduces a new local that shadows the member from that point forward. Conversely, an inline variable declared *before* a `with` statement may itself be shadowed by a member of the `with` designator. The compiler does not warn about either case. For clarity, avoid using `with` together with inline variable names that could collide with members of the designator.
 
 ### 6.15 The `raise` Statement
 
@@ -2344,7 +2380,7 @@ Object Pascal supports **single inheritance** for classes. Multiple interfaces m
 
 #### 8.2.1 `abstract` and `sealed` Classes
 
-- **`abstract`** class: should not be instantiated directly; the compiler issues a warning (W1020) if you do. It may contain abstract methods. Calling an unoverridden abstract method at runtime raises `EAbstractError`.
+- **`abstract`** class: should not be instantiated directly; the compiler issues a warning if a constructor call targets an abstract class type. It may contain abstract methods. Calling an unoverridden abstract method at runtime raises `EAbstractError`.
 - **`sealed`** class: cannot be subclassed (no class may inherit from it).
 
 ```pascal
@@ -2370,8 +2406,10 @@ type
 | `automated`       | Legacy (COM Automation); like `public` with Automation RTTI    |
 
 **Default visibility:** If no visibility specifier precedes the first members, they are:
-- `published` if the class has `{$M+}` or descends from `TPersistent` (which has `{$M+}`)
+- `published` if the class has `{$M+}` **or descends from a class compiled with `{$M+}`** (most notably `TPersistent` and all its descendants, including `TComponent`, `TControl`, VCL/FMX components, etc.)
 - `public` otherwise
+
+Note: The `{$M+}` state propagates automatically through the inheritance chain. If an ancestor class was compiled with `{$M+}`, all descendant classes inherit this setting regardless of the `{$M}` switch state in the descendant's compilation unit. Adding `{$M+}` to an ancestor affects the default visibility of all subsequently defined descendants.
 
 ### 8.4 Fields
 
@@ -2393,8 +2431,8 @@ Class variables are shared among all instances (like static fields in other lang
 
 ```
 METHOD_DECLARATION = METHOD_HEADER ';' [ DIRECTIVE_LIST ';' ] [ METHOD_BODY ';' ] ;
-METHOD_HEADER = ( 'procedure' | 'function' | 'constructor' | 'destructor' )
-                [ 'class' ] IDENT [ GENERIC_PARAMS ] [ FORMAL_PARAMS ]
+METHOD_HEADER = [ 'class' ] ( 'procedure' | 'function' | 'constructor' | 'destructor' )
+                IDENT [ GENERIC_PARAMS ] [ FORMAL_PARAMS ]
                 [ ':' RETURN_TYPE ] ;
 ```
 
@@ -2446,6 +2484,8 @@ Rules:
 3. **Exception safety**: If an exception occurs during a constructor invoked on a **class reference** (the allocation form from rule 1), `Destroy` is called automatically and the allocated memory is freed. If the constructor was invoked on an existing instance (e.g., `inherited Create` or `Self.Create`), no automatic `Destroy` or deallocation occurs — the caller is responsible for cleanup.
 4. Constructors can be `virtual`. When called through a class-reference variable (`TClass.Create`), the actual constructor dispatched depends on the runtime class.
 
+> **Partial construction**: Because `Destroy` may be called automatically when a constructor raises an exception (rule 3), all destructors **must tolerate partially-initialized objects**. Fields that were not yet assigned will contain their zero-initialized values (integers 0, pointers `nil`, strings empty, etc.) — the constructor was zero-filling the instance before executing its body. A destructor that calls methods on uninitialized sub-objects (e.g., `FList.Free` without a `nil` guard) will itself raise an exception and mask the original one. Always use `FList.Free` (which checks for `nil`) rather than `FList.Destroy` in destructors.
+
 ### 8.7 Destructors
 
 ```pascal
@@ -2462,6 +2502,38 @@ Rules:
    c. `inherited` propagates up the chain.
    d. `FreeInstance` deallocates the memory.
 4. Destructors should be tolerant of partially constructed objects (fields may be zero/nil if the constructor didn't complete).
+
+### 8.7.1 Class Constructors and Class Destructors
+
+Class constructors and class destructors are **class-level** (not instance-level) special methods that execute automatically during unit initialization and finalization:
+
+```pascal
+type
+  TMyClass = class
+    class var FInstance: TMyClass;
+    class constructor Create;
+    class destructor Destroy;
+  end;
+
+class constructor TMyClass.Create;
+begin
+  FInstance := TMyClass.Create;  // instance constructor — different from class constructor
+end;
+
+class destructor TMyClass.Destroy;
+begin
+  FInstance.Free;
+end;
+```
+
+Rules:
+
+1. **Syntax**: `class constructor Ident;` and `class destructor Ident;`. The name is conventionally `Create`/`Destroy` but any valid identifier is accepted. They take no parameters.
+2. **Execution timing**: A class constructor runs during unit initialization (similar to an `initialization` section). A class destructor runs during unit finalization (similar to a `finalization` section). The exact execution order relative to other units follows the standard unit initialization order (dependency-first).
+3. **No explicit calls**: Class constructors and class destructors cannot be called explicitly. They are invoked automatically by the RTL.
+4. **No inheritance interaction**: `class constructor` and `class destructor` are not virtual and are not inherited — each class in the hierarchy may declare its own, and each runs independently.
+5. **Use cases**: Lazy initialization of class-level state (`class var` fields), registering/unregistering a class in a factory or class registry, acquiring/releasing shared resources.
+6. **Exception safety**: An exception in a class constructor terminates the application during startup. An exception in a class destructor during shutdown is silently swallowed on most platforms.
 
 ### 8.8 Virtual Methods and Polymorphism
 
@@ -2541,7 +2613,8 @@ inherited Create(Args);       // call inherited constructor
 
 `inherited` without a method name calls the inherited method of the same name, passing the same parameters. `inherited` with a name calls the specified inherited method.
 
-If the current class has no inherited method of that name, `inherited` does nothing (no error) in the no-argument form.
+- **No-argument `inherited`** (bare `inherited;`): If the current class has no inherited method of the same name, `inherited` does nothing — no error is produced. This is the normal behavior for message handlers and other cases where a base class may not have the matching method.
+- **Named `inherited MethodName(Args)`**: If the current class has no ancestor with a method of that name, this is a **compile-time error**. The compiler requires that the named inherited method exists.
 
 ### 8.10 Properties
 
@@ -2580,7 +2653,14 @@ Getter signature: `function GetX: T;` (no extra params) or a field `FX: T`.
 
 Setter signature: `procedure SetX(const Value: T);` or `procedure SetX(Value: T);`.
 
-Property specifiers are **inherited**: a descendant class may re-declare a property from an ancestor to change only the specifiers (e.g., adding `write` to a read-only inherited property, or changing the backing field/method). The full type and name must match the inherited property.
+Property specifiers are **inherited**: a descendant class may re-declare a property to change its visibility or specifiers without repeating the full declaration. The rules for partial re-declaration are:
+
+- **`read` and `write`**: If omitted in the re-declaration, the inherited accessor carries forward. To change an accessor, specify the new `read` or `write`; the other retains the inherited value. To add a `write` to a previously read-only property, specify only `write`.
+- **`default` and `nodefault`**: If omitted, the inherited `default` value carries forward. Use `nodefault` to explicitly remove an inherited default.
+- **`stored`**: If omitted, the inherited `stored` specifier carries forward.
+- **`index`**: Cannot be changed in a re-declaration; it is always inherited from the original declaration.
+- **Visibility**: Re-declaring a property in a higher-visibility section (e.g., promoting from `protected` to `public`) is the most common reason for re-declaration without changing any specifiers.
+- **Type**: The property type cannot be changed in a re-declaration; it must match the ancestor's type exactly.
 
 #### 8.10.2 Array Properties (Indexed Properties)
 
@@ -2659,6 +2739,8 @@ type
 Events enable the observer pattern: the object calls the assigned method (if not `nil`) when the event occurs.
 
 ### 8.12 Operators (Record Operator Overloading)
+
+> **Note:** This section appears in the Classes chapter for historical reasons, but operator overloading applies exclusively to records on all current platforms. The full treatment is in [§10.4 Operator Overloading](#104-operator-overloading).
 
 On desktop/server compilers (Win32, Win64, Linux, macOS), operator overloading is supported **only for records**, not for classes. (Class operator overloading existed on the now-retired mobile ARC compilers and Delphi for .NET, but is not available on any current desktop target.) See [§10.4](#104-operator-overloading) for the full list of overloadable operators and examples.
 
@@ -2806,7 +2888,9 @@ Offset 4/8: Fields from ancestor classes (in inheritance order, starting from th
 ... fields from this class (in declaration order) ...
 ```
 
-Note: `TObject` itself declares no instance fields. The VMT pointer at offset 0 is the only per-instance data contributed by `TObject`. The first declared fields come from whichever descendant class in the inheritance chain first declares fields.
+Note: `TObject` itself declares no instance fields visible to the programmer. The VMT pointer at offset 0 is the only per-instance data contributed by `TObject`. The first declared fields come from whichever descendant class in the inheritance chain first declares fields.
+
+**Hidden monitor field:** Starting with Delphi 2009, every `TObject` instance carries a hidden pointer-sized field used by `System.TMonitor` for built-in lock support (`TMonitor.Enter`, `TMonitor.Exit`, `TMonitor.Wait`, `TMonitor.Pulse`). This field is allocated lazily — it consumes space only when `TMonitor.Enter` is first called on the instance. The monitor field is not part of `InstanceSize` as reported to user code; it is managed by the RTL behind the scenes. This mechanism enables any object to serve as a synchronization primitive without inheriting from a special base class.
 
 The first field is always a pointer to the **Virtual Method Table**, which in turn contains:
 
@@ -3032,11 +3116,28 @@ Interfaces without a GUID can still be used for compile-time polymorphism but ca
 ### 9.9 The `Supports` Function
 
 ```pascal
-function Supports(const Instance: TObject; const IID: TGUID; out Intf): Boolean;
-function Supports(const Instance: IInterface; const IID: TGUID; out Intf): Boolean;
+function Supports(const Instance: TObject; const IID: TGUID; out Intf): Boolean; overload;
+function Supports(const Instance: IInterface; const IID: TGUID; out Intf): Boolean; overload;
+function Supports(const Instance: TObject; const IID: TGUID): Boolean; overload;
+function Supports(const Instance: IInterface; const IID: TGUID): Boolean; overload;
 ```
 
-`Supports` is a safer alternative to `as` — it returns `False` instead of raising an exception.
+`Supports` is a safer alternative to `as` — it returns `False` instead of raising an exception. Four overloads exist: two with an `out` parameter that both tests support and retrieves the interface reference, and two without `out` that only test support.
+
+The most common pattern is query-and-use:
+
+```pascal
+var Printable: IPrintable;
+if Supports(Obj, IPrintable, Printable) then
+  Printable.Print;
+```
+
+The two-argument form (without `out`) is useful for pure capability checks:
+
+```pascal
+if Supports(Obj, IPrintable) then
+  ShowMessage('Object supports printing');
+```
 
 ---
 
@@ -3216,7 +3317,15 @@ CONSTRAINT        = 'class'
                   | CLASS_TYPE ;
 ```
 
-#### 11.2.1 Generic Classes
+#### 11.2.0 Lexer Disambiguation for `<` and `>`
+
+The `<` and `>` tokens serve a dual role in Object Pascal: they are both **relational operators** (in expressions) and **generic type parameter delimiters** (in type declarations and instantiations). The compiler disambiguates as follows:
+
+1. **After a declared generic type name** — when `<` immediately follows an identifier that the compiler has already resolved as a declared generic type or generic method, it is treated as the opening angle bracket of a type argument list, not the less-than operator. The compiler completes the generic instantiation by reading type arguments until the matching `>`.
+2. **In all other expression contexts** — `<` and `>` are relational operators, parsed with the usual precedence rules.
+3. **Closing `>>`** — the token sequence `>>` (two consecutive `>` characters) that closes a nested generic instantiation (e.g., `TList<TStack<Integer>>`) is parsed as **two separate closing brackets**, not as the right-shift operator `shr`. The parser tracks generic nesting depth to make this determination.
+
+The disambiguation is entirely context-driven. A parser must maintain a symbol table that records which identifiers are generic types so that it can make the correct choice at the `<` token.
 
 ```pascal
 type
@@ -3344,6 +3453,12 @@ var Y := Max(3, 5);           // inferred: T = Integer
 ```
 
 Type inference is not supported for generic type instantiations (only for method calls).
+
+Limitations of type inference:
+- **Inference fails for return-type-only parameters**: If the type parameter `T` appears only in the return type (not in any parameter), the compiler cannot infer it. The call must be explicit: `var V := Factory<TFoo>.Create`.
+- **Inference fails with multiple ambiguous overloads**: When two or more overloaded generic methods both match the inferred type, a compile-time ambiguity error is issued. Provide an explicit type argument to resolve it.
+- **No inference for generic types**: `TStack` (without `<T>`) is not a valid type expression. Inference applies only to generic **method** calls, never to generic **type** instantiations.
+- **Inference is not transitive**: The compiler performs inference from the argument types at the call site only — it does not propagate inferred types through a chain of intermediate calls.
 
 ### 11.5 Generic Instantiation
 
@@ -3600,7 +3715,8 @@ Rules:
 1. The expression must evaluate to an object (class instance). By convention, a new exception object is created at the `raise` site.
 2. After `raise`, control transfers to the nearest enclosing exception handler.
 3. A bare `raise` (no expression) in an `except` block re-raises the current exception without destroying it.
-4. The `at` clause specifies a code address for the exception's origin (for debugging).
+4. A bare `raise` outside an `except` block is a **compile-time error** — there is no current exception to re-raise.
+5. The `at` clause specifies a code address for the exception's origin (for debugging).
 
 ### 13.3 The `try..except` Statement
 
@@ -4117,15 +4233,15 @@ Directives fall into three categories:
 | `{$P+}` / `{$OPENSTRINGS ON}` | ON | Open string parameters (legacy) |
 | `{$Q-}` / `{$OVERFLOWCHECKS OFF}` | OFF | Integer overflow checking |
 | `{$R-}` / `{$RANGECHECKS OFF}` | OFF | Range checking |
-| `{$T-}` / `{$TYPEDADDRESS OFF}` | OFF | `@` returns typed pointer |
+| `{$T-}` / `{$TYPEDADDRESS OFF}` | OFF | `{$T+}`: `@` returns typed `^T`; `{$T-}` (default): `@` returns untyped `Pointer` |
 | `{$U-}` / `{$SAFEDIVIDE OFF}` | OFF | Safe FDIV (Pentium bug workaround) |
 | `{$V+}` / `{$VARSTRINGCHECKS ON}` | ON | Short string length checking |
 | `{$W-}` / `{$STACKFRAMES OFF}` | OFF | Always generate stack frames |
 | `{$X+}` / `{$EXTENDEDSYNTAX ON}` | ON | Extended syntax (function as procedure) |
 | `{$Z1}` / `{$MINENUMSIZE 1}` | 1 | Minimum enum size |
-| `{$POINTERMATH OFF}` | OFF | Enable pointer arithmetic |
+| `{$POINTERMATH OFF}` | OFF | When ON: enables pointer arithmetic (`P + N`, `P[N]`); when OFF (default): pointer arithmetic is not permitted |
 | `{$SCOPEDENUMS OFF}` | OFF | Scoped enumerations |
-| `{$ZEROBASEDSTRINGS OFF}` | OFF | 0-based string indexing |
+| `{$ZEROBASEDSTRINGS OFF}` | OFF | 0-based string indexing. **Deprecated in practice:** Embarcadero recommends against using `{$ZEROBASEDSTRINGS ON}` because the RTL string functions (`Pos`, `Copy`, `Delete`, `Insert`, etc.) remain unconditionally 1-based. Mixing 0-based indexing with 1-based RTL calls creates subtle off-by-one bugs. This directive was introduced for mobile-compiler compatibility but the mobile compilers have since been retired. New code should use the default 1-based indexing. |
 | `{$METHODINFO OFF}` | OFF | Generate method RTTI |
 
 ### 17.3 Parameter Directives
@@ -4215,6 +4331,36 @@ Rules:
 | `VERxxx` | Compiler version (e.g., `VER370` for Delphi 13, `VER360` for Delphi 12) |
 | `CompilerVersion` | Compiler version as float (e.g., 37.0 for Delphi 13) |
 
+**CompilerVersion / VERxxx History:**
+
+| Delphi Version | CompilerVersion | VERxxx | Product Name |
+|----------------|-----------------|--------|-------------|
+| Delphi 7 | 15.0 | VER150 | |
+| Delphi 2005 | 17.0 | VER170 | |
+| Delphi 2006 | 18.0 | VER180 | |
+| Delphi 2007 | 18.5 | VER185 | |
+| Delphi 2009 | 20.0 | VER200 | |
+| Delphi 2010 | 21.0 | VER210 | |
+| Delphi XE | 22.0 | VER220 | |
+| Delphi XE2 | 23.0 | VER230 | |
+| Delphi XE3 | 24.0 | VER240 | |
+| Delphi XE4 | 25.0 | VER250 | |
+| Delphi XE5 | 26.0 | VER260 | |
+| Delphi XE6 | 27.0 | VER270 | |
+| Delphi XE7 | 28.0 | VER280 | |
+| Delphi XE8 | 29.0 | VER290 | |
+| Delphi 10 Seattle | 30.0 | VER300 | |
+| Delphi 10.1 Berlin | 31.0 | VER310 | |
+| Delphi 10.2 Tokyo | 32.0 | VER320 | |
+| Delphi 10.3 Rio | 33.0 | VER330 | |
+| Delphi 10.4 Sydney | 34.0 | VER340 | |
+| Delphi 11 Alexandria | 35.0 | VER350 | |
+| Delphi 12 Athens | 36.0 | VER360 | |
+| Delphi 13 Florence | 37.0 | VER370 | |
+| Delphi 13.1 Florence | 37.1 | VER371 | |
+
+For a comprehensive version reference including point releases, build numbers, and package versions, see [omonien/Delphi-Version-Information](https://github.com/omonien/Delphi-Version-Information).
+
 #### 17.4.2 Conditional Expressions (`{$IF}`)
 
 `{$IF}` supports full constant expressions:
@@ -4281,6 +4427,8 @@ On **Win32**:
 - Remaining on the stack, left to right
 - Result in `EAX` (ordinal/pointer up to 32 bits), `EAX:EDX` (64-bit), `ST(0)` (float)
 - `Self` counts as the first parameter for methods
+
+> **Hidden result pointer (large return values):** When a function returns a value larger than fits in registers (e.g., a `string`, a `record`, a dynamic array, or any structured type), the compiler inserts a hidden **result pointer** parameter. The caller allocates space for the return value on the stack and passes a pointer to it as an implicit parameter. On Win32 register convention with a large result: `Self` → `EAX`, hidden result pointer → `EDX`, first explicit parameter → `ECX` (then stack). Any inline assembly or C interop code must account for this hidden parameter when functions return large values — the documented register assignments above apply only to functions returning values that fit in registers.
 
 On **Win64** (Microsoft x64 ABI — used regardless of calling convention keyword):
 - All calling conventions effectively use the Microsoft x64 ABI
@@ -4462,6 +4610,7 @@ The following type identifiers are predefined in the `System` unit (always in sc
 | `nil` | (special) | Null pointer/reference |
 | `MaxInt` | `Integer` | 2147483647 |
 | `MaxLongInt` | `LongInt` | 2147483647 |
+| `Pi` | `Extended` | 3.14159265358979323846... (on Win64, `Extended` = `Double`, so precision is limited to ~15 digits) |
 
 ### 19.3 Intrinsic Functions (Compiler Magic)
 
@@ -4534,7 +4683,7 @@ These are built into the compiler and cannot be reassigned or referenced as proc
 | `Initialize(V)` | Initialize managed variable |
 | `Finalize(V [, Count])` | Finalize managed variable |
 | `Addr(X)` | Address of X (same as @X) |
-| `Assigned(P)` | True if not nil |
+| `Assigned(P)` | True if not nil (supports pointers, object references, procedural types, and method references — for method references, tests the underlying interface pointer) |
 
 #### 19.3.6 Flow Control
 
@@ -4564,7 +4713,6 @@ These are built into the compiler and cannot be reassigned or referenced as proc
 | `Trunc(X)` | Truncate toward zero |
 | `Int(X)` | Integer part as float |
 | `Frac(X)` | Fractional part |
-| `Pi` | 3.14159265358979... |
 | `Random [( Range )]` | Pseudo-random number |
 | `Randomize` | Seed random generator |
 
@@ -4632,9 +4780,9 @@ until         uses          var           while
 with          xor
 ```
 
-Note: `on` and `at` are context-sensitive reserved words (`on` only in `except` handlers; `at` only in `raise` statements), but they cannot be used as identifiers without the `&` prefix. `operator` and `out` are directives ([§A.2](#a2-directives-context-sensitive-70)), not reserved words.
+Note: `on` and `at` appear in the reserved word list above and require the `&` prefix to be used as identifiers. However, they only carry syntactic meaning in specific contexts (`on` in `except` handlers; `at` in `raise` statements). They are therefore best described as **context-restricted reserved words**: reserved (cannot be used as bare identifiers) but only semantically significant in their respective contexts. `operator` and `out` are directives ([§A.2](#a2-directives-context-sensitive-59)), not reserved words.
 
-### A.2 Directives (context-sensitive, 70+)
+### A.2 Directives (context-sensitive, 59)
 
 ```
 absolute      abstract      align         assembler     automated
@@ -4806,8 +4954,8 @@ ProcedureDecl     = ProcHeader ';' [ DirectiveList ';' ]
 FunctionDecl      = FuncHeader ';' [ DirectiveList ';' ]
                     ( Block ';' | ExternalDir ';' | 'forward' ';' ) ;
 
-ProcHeader        = [ 'class' ] 'procedure' Ident [ GenericParams ] [ FormalParams ] ;
-FuncHeader        = [ 'class' ] 'function' Ident [ GenericParams ] [ FormalParams ]
+ProcHeader        = [ 'class' ] 'procedure' QualifiedIdent [ GenericParams ] [ FormalParams ] ;
+FuncHeader        = [ 'class' ] 'function' QualifiedIdent [ GenericParams ] [ FormalParams ]
                     ':' Type ;
 
 MethodDecl        = MethodHeader ';' [ DirectiveList ';' ] ;
@@ -4842,6 +4990,21 @@ ExportsEntry      = Ident [ FormalParams ]
                     [ 'name' StringLiteral ] [ 'index' IntegerLiteral ]
                     [ 'resident' ] ;
 ```
+
+> **Note on `QualifiedIdent` in `ProcHeader`/`FuncHeader`**: The `QualifiedIdent` form (`ClassName.MethodName`) is required when implementing a method body outside the class body in the implementation section. When declaring a new standalone routine, `QualifiedIdent` degenerates to a plain `Ident`.
+>
+> Example:
+> ```pascal
+> procedure TMyClass.DoSomething;           // QualifiedIdent: TMyClass.DoSomething
+> begin
+>   // implementation
+> end;
+>
+> procedure StandaloneProc;                 // plain Ident
+> begin
+>   // implementation
+> end;
+> ```
 
 ### C.5 Generics
 
@@ -4987,6 +5150,31 @@ PortabilityDir    = 'platform' | 'deprecated' [ StringLiteral ]
 Visibility        = 'public' | 'private' | 'protected' | 'published'
                   | 'strict' 'private' | 'strict' 'protected'
                   | 'automated' ;
+
+ClassVarSection   = 'class' 'var' { IdentList ':' Type ';' } ;
+OperatorDecl      = 'class' 'operator' OverloadableOp '(' FormalParams ')' ':' Type ';'
+                    [ MethodBody ';' ] ;
+ClassConstructorDecl = 'class' 'constructor' Ident ';' [ MethodBody ';' ] ;
+ClassDestructorDecl  = 'class' 'destructor' Ident ';' [ MethodBody ';' ] ;
+```
+
+### C.11 Terminal Symbols
+
+The following terminal symbols are used throughout the grammar but are defined lexically rather than syntactically:
+
+```ebnf
+(* Lexical terminals — see Chapter 2 for full lexical rules *)
+Ident             = LETTER { LETTER | DIGIT | '_' } ;  (* case-insensitive *)
+Number            = IntegerLiteral | RealLiteral ;
+IntegerLiteral    = DIGIT_SEQ | '$' HEX_DIGIT_SEQ | '%' BIN_DIGIT_SEQ ;
+RealLiteral       = DIGIT_SEQ '.' DIGIT_SEQ [ ('E'|'e') ['+'|'-'] DIGIT_SEQ ] ;
+StringLiteral     = STRING_PART { STRING_PART } ;
+StringConst       = StringLiteral ;  (* alias used in some productions *)
+BoolConst         = 'True' | 'False' ;
+GUID              = '{' HEX_DIGIT_SEQ '-' HEX_DIGIT_SEQ '-' HEX_DIGIT_SEQ '-'
+                    HEX_DIGIT_SEQ '-' HEX_DIGIT_SEQ '}' ;
+                    (* e.g. '{00000000-0000-0000-C000-000000000046}' *)
+AsmInstruction    = (* platform-specific assembly; see Chapter 16 *) ;
 ```
 
 ---
@@ -5108,33 +5296,33 @@ Total size: `TObject.InstanceSize` (includes the VMT pointer but not the heap bl
 
 The VMT pointer points to the first virtual method entry. Negative offsets contain metadata:
 
-| Offset | Field | Type |
-|--------|-------|------|
-| -88 | `vmtSelfPtr` | Pointer to VMT itself |
-| -84 | `vmtIntfTable` | Pointer to interface table |
-| -80 | `vmtAutoTable` | Automation info |
-| -76 | `vmtInitTable` | Field initialization table |
-| -72 | `vmtTypeInfo` | RTTI pointer |
-| -68 | `vmtFieldTable` | Published field table |
-| -64 | `vmtMethodTable` | Published method table |
-| -60 | `vmtDynamicTable` | Dynamic method table |
-| -56 | `vmtClassName` | Pointer to class name (ShortString) |
-| -52 | `vmtInstanceSize` | Instance size |
-| -48 | `vmtParent` | Pointer to parent VMT |
-| -44 | `vmtEquals` | `Equals` virtual method (Delphi 2009+) |
-| -40 | `vmtGetHashCode` | `GetHashCode` virtual method (Delphi 2009+) |
-| -36 | `vmtToString` | `ToString` virtual method (Delphi 2009+) |
-| -32 | `vmtSafeCallException` | `SafeCallException` virtual method |
-| -28 | `vmtAfterConstruction` | `AfterConstruction` virtual method |
-| -24 | `vmtBeforeDestruction` | `BeforeDestruction` virtual method |
-| -20 | `vmtDispatch` | `Dispatch` virtual method |
-| -16 | `vmtDefaultHandler` | `DefaultHandler` virtual method |
-| -12 | `vmtNewInstance` | `NewInstance` virtual method |
-| -8  | `vmtFreeInstance` | `FreeInstance` virtual method |
-| -4  | `vmtDestroy` | `Destroy` virtual method |
-| 0+  | User virtual method pointers | Code pointers |
+| Entry | Win32 Offset | Win64 Offset | Field | Type |
+|-------|-------------|-------------|-------|------|
+| 1 | -88 | -176 | `vmtSelfPtr` | Pointer to VMT itself |
+| 2 | -84 | -168 | `vmtIntfTable` | Pointer to interface table |
+| 3 | -80 | -160 | `vmtAutoTable` | Automation info |
+| 4 | -76 | -152 | `vmtInitTable` | Field initialization table |
+| 5 | -72 | -144 | `vmtTypeInfo` | RTTI pointer |
+| 6 | -68 | -136 | `vmtFieldTable` | Published field table |
+| 7 | -64 | -128 | `vmtMethodTable` | Published method table |
+| 8 | -60 | -120 | `vmtDynamicTable` | Dynamic method table |
+| 9 | -56 | -112 | `vmtClassName` | Pointer to class name (ShortString) |
+| 10 | -52 | -104 | `vmtInstanceSize` | Instance size (NativeInt) |
+| 11 | -48 | -96 | `vmtParent` | Pointer to parent VMT |
+| 12 | -44 | -88 | `vmtEquals` | `Equals` virtual method (Delphi 2009+) |
+| 13 | -40 | -80 | `vmtGetHashCode` | `GetHashCode` virtual method (Delphi 2009+) |
+| 14 | -36 | -72 | `vmtToString` | `ToString` virtual method (Delphi 2009+) |
+| 15 | -32 | -64 | `vmtSafeCallException` | `SafeCallException` virtual method |
+| 16 | -28 | -56 | `vmtAfterConstruction` | `AfterConstruction` virtual method |
+| 17 | -24 | -48 | `vmtBeforeDestruction` | `BeforeDestruction` virtual method |
+| 18 | -20 | -40 | `vmtDispatch` | `Dispatch` virtual method |
+| 19 | -16 | -32 | `vmtDefaultHandler` | `DefaultHandler` virtual method |
+| 20 | -12 | -24 | `vmtNewInstance` | `NewInstance` virtual method |
+| 21 | -8  | -16 | `vmtFreeInstance` | `FreeInstance` virtual method |
+| 22 | -4  | -8  | `vmtDestroy` | `Destroy` virtual method |
+| — | 0+  | 0+  | User virtual method pointers | Code pointers |
 
-(Exact offsets are platform-dependent; shown for Win32/Delphi 13.1 Florence. On Win64, entries that are pointers or `NativeInt` values occupy 8 bytes instead of 4, so the total size of the negative-offset metadata region differs from a simple doubling of Win32 offsets. Consult the `System` unit source for the actual `vmt*` constants on each target platform.)
+Win64 offsets are exactly `Win32_offset * 2` because every entry is a pointer or `NativeInt`, which is 8 bytes on Win64 vs 4 on Win32. The symbolic formula is: `offset = -(EntryCount - Index + 1) * SizeOf(Pointer)`. Consult the `System` unit source for the definitive `vmt*` constants on each target platform.
 
 ### F.3 Dynamic Array Memory Layout
 
