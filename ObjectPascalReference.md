@@ -198,10 +198,11 @@ Notes:
 
 ```
 INTEGER_LITERAL  = DECIMAL_LITERAL | HEX_LITERAL | OCTAL_LITERAL | BINARY_LITERAL ;
-DECIMAL_LITERAL  = DIGIT { DIGIT } ;
-HEX_LITERAL      = '$' HEX_DIGIT { HEX_DIGIT } ;
-OCTAL_LITERAL    = '&' OCTAL_DIGIT { OCTAL_DIGIT } ;
-BINARY_LITERAL   = '%' BIN_DIGIT { BIN_DIGIT } ;
+DECIMAL_LITERAL  = DIGIT_SEQ ;
+HEX_LITERAL      = '$' HEX_DIGIT { ['_'] HEX_DIGIT } ;
+OCTAL_LITERAL    = '&' OCTAL_DIGIT { ['_'] OCTAL_DIGIT } ;
+BINARY_LITERAL   = '%' BIN_DIGIT { ['_'] BIN_DIGIT } ;
+DIGIT_SEQ        = DIGIT { ['_'] DIGIT } ;   (* underscore digit separators: Delphi 11+ *)
 HEX_DIGIT        = '0'..'9' | 'A'..'F' | 'a'..'f' ;
 OCTAL_DIGIT      = '0'..'7' ;
 BIN_DIGIT        = '0' | '1' ;
@@ -746,7 +747,7 @@ Notes:
 2. `Currency` is a fixed-point type stored as a 64-bit integer with an implicit divisor of 10,000. It is the preferred type for monetary calculations.
 3. `Comp` is deprecated. Use `Int64` instead.
 4. `Real48` is the old Turbo Pascal 6-byte real format. It is retained for backward compatibility only.
-5. `Real` is an alias for `Double`.
+5. `Real` is an alias for `Double` (when `{$REALCOMPATIBILITY OFF}`, which is the default). With `{$REALCOMPATIBILITY ON}`, `Real` maps to `Real48` (the old 6-byte Turbo Pascal format) for backward compatibility with legacy code. New code should use `Double` explicitly rather than `Real` to avoid any ambiguity.
 
 ### 3.5 String Types
 
@@ -934,7 +935,7 @@ Records are **value types**. Assignment copies all fields. Records may contain:
 - Operators (overloaded)
 - Nested type and constant declarations
 - Class variables (`class var`)
-- Constructors (but no destructors — records have no finalizer other than `Finalize` for managed fields)
+- Constructors (and, for managed records, `class operator Finalize` — see [§10.6](#106-managed-records-delphi-104))
 
 Records **cannot** inherit from other records and do not support polymorphism. See [Chapter 10](#chapter-10-advanced-records) for advanced record features.
 
@@ -1203,7 +1204,7 @@ Special values:
 
 1. **Performance**: Variant operations are significantly slower than typed equivalents. Every operation involves runtime type checking, potential conversion, and dynamic dispatch. Avoid variants in performance-sensitive code paths.
 2. **Late-bound calls lack compile-time checking**: Calling methods via `V.SomeMethod` (late binding through `IDispatch`) has no compile-time verification. If the method does not exist on the underlying object, an `EOleSysError` or `EVariantError` is raised at runtime.
-3. **Implicit conversions can produce unexpected results**: For example, adding a string variant `'3'` to an integer variant `4` may produce `7` (numeric addition) or `'34'` (string concatenation) depending on the operation and conversion rules, which can mask logic errors.
+3. **Implicit conversions can produce unexpected results**: For example, adding a string variant `'3'` to an integer variant `4` produces `7` (numeric addition, because numeric types take precedence over strings — see [§3.9.1](#391-variant-conversion-rules)), not `'34'`. This silent numeric conversion can mask logic errors when string concatenation was intended.
 4. **Best practice**: Prefer typed alternatives when the type is known at compile time. Reserve variants for COM interop, database field values, and other genuinely dynamic scenarios where the type is not known until runtime.
 
 ### 3.10 Type Aliases and Distinct Types
@@ -1269,7 +1270,7 @@ DECLARATION_SECTION = LABEL_SECTION
                     | EXPORTS_CLAUSE ;
 ```
 
-> **Note on `EXPORTS_CLAUSE`**: `exports` clauses are valid only in **library** projects (`.dll`/`.so`). They are a declaration-level construct that lists entry points to be exported from the compiled library. In unit `implementation` sections and `program` blocks, `exports` is not permitted.
+> **Note on `EXPORTS_CLAUSE`**: `exports` clauses are meaningful only in **library** projects (`.dll`/`.so`) and **package** projects (`.bpl`), where they list entry points to be exported from the compiled binary. The compiler accepts the `exports` clause in `program` blocks as well (see [§2.7](#27-exports-clause)), but it has no practical effect there since programs do not produce importable exports in normal use.
 
 There is no required ordering (unlike original Pascal which required `label`, `const`, `type`, `var`, then procedures).
 
@@ -1355,7 +1356,8 @@ VAR_DECL    = IDENT_LIST ':' TYPE [ '=' INITIAL_VALUE ] [ PORTABILITY_DIRECTIVE 
 - **Global variables** are zero-initialized by default.
 - **Local variables** of unmanaged types are **not initialized** — their initial value is undefined.
 - **Local variables** of managed types (strings, dynamic arrays, interfaces, variants) are initialized to their "empty" state (`''`, `nil`, `Unassigned`).
-- **Class fields** are zero-initialized when the object is created.
+- **Local variables** of managed record types (records with `class operator Initialize` — see [§10.6](#106-managed-records-delphi-104)) are first zero-initialized and then their `Initialize` operator is called automatically when the variable comes into scope.
+- **Class fields** are zero-initialized when the object is created. If a field is of a managed record type, its `Initialize` operator runs after the instance memory is zero-filled (during `InitInstance`).
 
 #### 4.5.2 The `absolute` Directive
 
@@ -1509,7 +1511,7 @@ All binary operators at the same precedence level are **left-associative**. The 
 **Important:** Unlike C-family languages, `and` and `or` have **higher** precedence than relational operators. This means:
 
 ```pascal
-if A > 0 and B > 0 then  // WRONG: parsed as A > (0 and B) > 0
+if A > 0 and B > 0 then  // WRONG: parsed as (A > (0 and B)) > 0
 if (A > 0) and (B > 0) then  // CORRECT
 ```
 
@@ -1841,7 +1843,7 @@ The compiler recognizes certain function-like constructs as intrinsics that are 
 | `Dec(X [, N])`   | Decrement ordinal or pointer                        |
 | `Include(S, E)`  | Add element to set                                  |
 | `Exclude(S, E)`  | Remove element from set                             |
-| `Swap(X)`        | Swap bytes of a Word value                          |
+| `Swap(X)`        | Swap high and low bytes (Word) or high and low words (Integer/Int64) |
 | `Lo(X)`          | Low byte of a word/integer                          |
 | `Hi(X)`          | High byte of a word/integer                         |
 | `NameOf(Ident)`  | String name of an identifier (Delphi 13+)           |
@@ -2890,7 +2892,7 @@ Offset 4/8: Fields from ancestor classes (in inheritance order, starting from th
 
 Note: `TObject` itself declares no instance fields visible to the programmer. The VMT pointer at offset 0 is the only per-instance data contributed by `TObject`. The first declared fields come from whichever descendant class in the inheritance chain first declares fields.
 
-**Hidden monitor field:** Starting with Delphi 2009, every `TObject` instance carries a hidden pointer-sized field used by `System.TMonitor` for built-in lock support (`TMonitor.Enter`, `TMonitor.Exit`, `TMonitor.Wait`, `TMonitor.Pulse`). This field is allocated lazily — it consumes space only when `TMonitor.Enter` is first called on the instance. The monitor field is not part of `InstanceSize` as reported to user code; it is managed by the RTL behind the scenes. This mechanism enables any object to serve as a synchronization primitive without inheriting from a special base class.
+**Hidden monitor field:** Starting with Delphi 2009, every `TObject` instance carries a hidden pointer-sized field used by `System.TMonitor` for built-in lock support (`TMonitor.Enter`, `TMonitor.Exit`, `TMonitor.Wait`, `TMonitor.Pulse`). The pointer-sized field is always present in every instance, but the monitor state data it points to is **allocated lazily** — the pointer remains `nil` until `TMonitor.Enter` is first called on the instance. The monitor field is not part of `InstanceSize` as reported to user code; it is managed by the RTL behind the scenes. This mechanism enables any object to serve as a synchronization primitive without inheriting from a special base class.
 
 The first field is always a pointer to the **Virtual Method Table**, which in turn contains:
 
@@ -3167,7 +3169,7 @@ type
 
 ### 10.2 Record Constructors
 
-Records may have constructors (but not destructors):
+Records may have constructors (and, since Delphi 10.4, `class operator Finalize` for managed records — see [§10.6](#106-managed-records-delphi-104)):
 
 ```pascal
 constructor TVector3.Create(AX, AY, AZ: Double);
@@ -3326,6 +3328,8 @@ The `<` and `>` tokens serve a dual role in Object Pascal: they are both **relat
 3. **Closing `>>`** — the token sequence `>>` (two consecutive `>` characters) that closes a nested generic instantiation (e.g., `TList<TStack<Integer>>`) is parsed as **two separate closing brackets**, not as the right-shift operator `shr`. The parser tracks generic nesting depth to make this determination.
 
 The disambiguation is entirely context-driven. A parser must maintain a symbol table that records which identifiers are generic types so that it can make the correct choice at the `<` token.
+
+#### 11.2.1 Generic Classes
 
 ```pascal
 type
@@ -3645,7 +3649,7 @@ The compiler implements anonymous methods as:
 
 ### 12.5 Compatibility
 
-Method references are **not** type-compatible with `procedure of object` or plain `procedure` pointer types. They are a distinct category:
+Method references (`reference to`) are a distinct procedural-type category, separate from plain procedure pointers and method pointers (`of object`). The three categories are **not** interchangeable:
 
 ```pascal
 type
@@ -3654,7 +3658,7 @@ type
   TRefProc = reference to procedure;
 ```
 
-A `reference to` variable can hold all three kinds, but the reverse is not true. A `procedure of object` variable cannot hold an anonymous method.
+A `reference to` variable is the most permissive: it can be assigned a plain procedure, a method of object, or an anonymous method (the compiler wraps non-anonymous sources in a hidden adapter). However, the reverse is **not** true — a `procedure of object` variable cannot hold an anonymous method, and a plain `procedure` variable cannot hold a method pointer or anonymous method.
 
 ---
 
@@ -3686,6 +3690,7 @@ Standard exception classes include:
 | `EArgumentOutOfRangeException` | Argument out of range |
 | `EConvertError` | Type conversion error |
 | `EDivByZero` | Integer division by zero |
+| `EIntfCastError` | Interface cast failure (`as` with interfaces) |
 | `EInOutError` | File I/O error |
 | `EIntOverflow` | Integer overflow |
 | `EInvalidCast` | Invalid typecast |
@@ -3694,6 +3699,7 @@ Standard exception classes include:
 | `EOutOfMemory` | Memory allocation failure |
 | `ERangeError` | Range check error |
 | `EStackOverflow` | Stack overflow |
+| `EVariantError` | Variant type conversion or operation error |
 | `EOverflow` | Floating-point overflow |
 | `EUnderflow` | Floating-point underflow |
 | `EZeroDivide` | Floating-point division by zero |
@@ -3867,7 +3873,7 @@ The following types are **reference-counted** with **copy-on-write** (COW):
 |------|-------------|-----|
 | `string` (UnicodeString) | Yes | Yes |
 | `AnsiString` | Yes | Yes |
-| Dynamic arrays | Yes | No (shared reference on assign) |
+| Dynamic arrays | Yes | Partial: assignment shares the reference (no copy), but `SetLength` copies if the array is shared (ref count > 1) — see [§3.6.1](#361-array-types) |
 | Interfaces | Yes | No (shared, not COW) |
 | `Variant` | No (managed; deep copy on assign) | N/A |
 
@@ -4491,10 +4497,11 @@ function strlen(s: PAnsiChar): NativeUInt; cdecl; external 'msvcrt.dll';
 | `char*` | `PAnsiChar` |
 | `wchar_t*` | `PWideChar` |
 | `T*` | `^T` |
-| `T[]` | `array of T` or `^T` |
+| `T[]` (parameter) | `^T` (C arrays decay to pointers; do **not** use Delphi `array of T`, which has a ref-counted heap header) |
 | `struct` | `record` (with matching alignment) |
 | `enum` | Enumerated type (check size with `{$Z}`) |
-| `bool` | `LongBool` (C) or `Boolean` (C++ `bool`) |
+| `_Bool` / `bool` (C99+) | `Boolean` (1 byte) |
+| `bool` (C++) | `Boolean` (1 byte) |
 | `BOOL` (Win32) | `LongBool` |
 | `HRESULT` | `HResult` |
 | `BSTR` | `WideString` |
@@ -4627,7 +4634,8 @@ These are built into the compiler and cannot be reassigned or referenced as proc
 | `High(X)` | `High(X): ordinal` | Highest value |
 | `Low(X)` | `Low(X): ordinal` | Lowest value |
 | `Odd(X)` | `Odd(X: Integer): Boolean` | True if X is odd |
-| `Abs(X)` | `Abs(X: numeric): numeric` | Absolute value |
+
+> **Note:** `Abs(X)` is listed under [§19.3.7 Mathematical Functions](#1937-mathematical-functions) because it operates on both integer and real types, not just ordinal types.
 
 #### 19.3.2 Type Information Functions
 
@@ -4884,7 +4892,8 @@ TypeDecl          = [ AttributeList ] Ident [ GenericParams ] '=' [ 'type' ] Typ
 VarSection        = 'var' { VarDecl } ;
 VarDecl           = IdentList ':' Type [ '=' ConstExpr ] [ PortabilityDir ] ';'
                   | IdentList ':' Type AbsoluteClause ';' ;
-AbsoluteClause    = 'absolute' Ident ;
+AbsoluteClause    = 'absolute' ( Ident | IntegerLiteral ) ;
+                    (* The IntegerLiteral form is obsolete — see §4.5.2 *)
 
 ThreadVarSection  = 'threadvar' { VarDecl } ;
 ```
@@ -5163,7 +5172,7 @@ ClassDestructorDecl  = 'class' 'destructor' Ident ';' [ MethodBody ';' ] ;
 The following terminal symbols are used throughout the grammar but are defined lexically rather than syntactically:
 
 ```ebnf
-(* Lexical terminals — see Chapter 2 for full lexical rules *)
+(* Lexical terminals — see Chapter 1 for full lexical rules *)
 Ident             = LETTER { LETTER | DIGIT | '_' } ;  (* case-insensitive *)
 Number            = IntegerLiteral | RealLiteral ;
 IntegerLiteral    = DIGIT_SEQ | '$' HEX_DIGIT_SEQ | '%' BIN_DIGIT_SEQ ;
@@ -5201,7 +5210,7 @@ Types `T1` and `T2` are **compatible** if:
 6. Both are `packed` set types with identical base types, OR both are non-packed sets with compatible base types.
 7. Both are class types and one is an ancestor of the other.
 8. Both are class-reference types and one's class is an ancestor of the other's.
-9. Both are procedure types with matching signatures and calling conventions.
+9. Both are procedure types of the same category (plain procedure pointer, method pointer `of object`, or method reference `reference to`) with matching signatures and calling conventions. A plain procedure pointer, a method pointer, and a method reference are three distinct categories and are not mutually compatible (see [§12.5](#125-compatibility)).
 10. Both are pointer types (`Pointer` is compatible with all pointer types).
 
 ### D.3 Assignment Compatibility
