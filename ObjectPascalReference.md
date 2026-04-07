@@ -130,6 +130,8 @@ Rules:
 #### 1.4.1 Qualified Identifiers
 
 ```
+IDENT           = IDENTIFIER ;
+IDENT_LIST      = IDENT { ',' IDENT } ;
 QUALIFIED_IDENT = [ UNIT_NAME '.' ] IDENTIFIER ;
 UNIT_NAME       = IDENTIFIER { '.' IDENTIFIER } ;
 ```
@@ -406,7 +408,7 @@ UNIT = UNIT_HEAD ';'
 
 UNIT_HEAD = 'unit' UNIT_NAME [ PORTABILITY_DIRECTIVE ] ;
 
-UNIT_NAME = IDENT { '.' IDENT } ;
+UNIT_NAME = IDENTIFIER { '.' IDENTIFIER } ;
 ```
 
 A unit name may contain dots, forming a **dotted unit name** (e.g., `System.SysUtils`). The dots are part of the unit name, not scope resolution operators. By convention the source file name matches the unit name with a `.pas` extension (e.g., `System.SysUtils.pas`), but this is not a language requirement: the `in` clause of a `uses` statement may redirect the compiler to any file: `uses MyUnit in 'SomeOtherFile.pas';`.

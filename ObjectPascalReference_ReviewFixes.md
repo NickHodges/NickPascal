@@ -303,3 +303,9 @@ Only two of four overloads were shown, and no usage examples were provided. Adde
 ### 50. [`<pending>`](https://github.com/omonien/nickpascal/commit/<pending>) — Reconcile lexical terminology and Appendix C terminals with current Delphi documentation in Chapter 1 / Appendix A / Appendix C
 
 The lexical chapter still used ASCII-only identifier grammar, `CHAR_LITERAL` terminology for `#nn`/`#$nn` string fragments, and appendix-terminal definitions that had drifted from the revised Chapter 1 wording. The wording was reconciled to use Unicode-aware identifier rules, `CONTROL_STRING` terminology, clearer classification of context-restricted reserved words and class-scope directive words, and Appendix C terminal aliases that now point back to the lexical productions actually used by the document.
+
+---
+
+### 51. [`<pending>`](https://github.com/omonien/nickpascal/commit/<pending>) — Define chapter-level identifier aliases and align `UNIT_NAME` grammar after lexical rewrite
+
+After the Chapter 1 lexical rewrite, later grammar snippets still used the shorthand nonterminals `IDENT` and `IDENT_LIST` without defining them in the main text, and §2.3 still repeated `UNIT_NAME` using the older identifier form. Added explicit chapter-level aliases in §1.4.1 and aligned the repeated `UNIT_NAME` production so the main grammar remains internally consistent without relying on Appendix C as hidden glue.
