@@ -501,7 +501,7 @@ LIBRARY = 'library' IDENT ';'
           BLOCK '.' ;
 ```
 
-A library compiles to a dynamic-link library (DLL on Windows, .so on Linux, .dylib on macOS). The block's compound statement (`begin..end`) serves as the DLL entry point (called on `DLL_PROCESS_ATTACH`).
+A library compiles to a dynamic-link library (DLL on Windows, .so on Linux, .dylib on macOS). The block's compound statement (`begin..end`) executes once when the library is loaded, similar to handling `DLL_PROCESS_ATTACH`. The actual OS-level entry point is RTL-generated code that dispatches all attach/detach notifications; to react to `DLL_THREAD_ATTACH`/`DETACH` or `DLL_PROCESS_DETACH`, the application must assign a handler to the `DllProc` variable.
 
 ### 2.6 Packages
 
@@ -1174,13 +1174,13 @@ type
 - **Procedure pointer vs method pointer**: these two categories are **not** assignment-compatible. A plain procedure pointer cannot hold a method pointer value, and vice versa. Both differ from method references (`reference to`).
 - **Calling convention must match**: assigning a `cdecl` function to a `stdcall` procedural type variable, or vice versa, is a type error. The calling convention is part of the type.
 - **Nested routine restrictions**: a nested (local) procedure/function cannot be assigned to a procedural type variable because it requires access to the enclosing stack frame in a way that is incompatible with a plain code pointer. Only top-level (unit-level) or class/record methods are valid sources.
-- **Method references** (`reference to`) are compatible with both plain procedural types and method pointers when the signatures match, because method references capture a closure that can wrap either. However, the assignment direction matters: you cannot assign a method reference to a plain procedure pointer type.
+- **Method references** (`reference to`): a plain procedure, function, or method is assignment-compatible with a matching method-reference type — the compiler wraps it in a closure automatically. The reverse is not permitted in either case: a method reference cannot be assigned to a plain procedural type or to a method-pointer type, because method references are implemented as interfaces with no accessible raw code pointer.
 
 ### 3.9 Variant Type
 
 The `Variant` type can hold values of many different types at runtime. Variants are used for COM Automation and late-binding scenarios.
 
-Internal layout: `TVarData` record (16 bytes), containing a type code (`VType: Word`) and a data area.
+Internal layout: `TVarData` record (16 bytes on 32-bit platforms, 24 bytes on 64-bit platforms, due to pointer-sized union members), containing a type code (`VType: Word`) and a data area.
 
 Supported types: all ordinal types, real types, `Currency`, `string`, `Boolean`, `IDispatch`, `IUnknown`, `OleVariant`, arrays of `Variant`, and `nil` (`Unassigned` / `Null`).
 
@@ -1313,9 +1313,9 @@ const
 
 #### 4.3.2 Typed Constants (Initialized Variables)
 
-When `{$J+}` (default off in modern Delphi) or `{$WRITEABLECONST ON}` is active, typed constants are **writable** — they are actually initialized global variables that persist across calls.
+When `{$J+}` (the default) or `{$WRITEABLECONST ON}` is active, typed constants are **writable** — they are actually initialized global variables that persist across calls. This has been the default since the earliest Delphi versions, for backward compatibility with legacy Pascal code that relied on typed constants acting as persistent initialized variables.
 
-When `{$J-}` (the default), typed constants are **read-only** after initialization.
+When `{$J-}` is explicitly set, typed constants are **read-only** after initialization.
 
 Typed constants of structured types (arrays, records) use aggregate constant syntax:
 
@@ -1563,7 +1563,7 @@ if (A > 0) and (B > 0) then  // CORRECT
 | `shl`    | Shift left         | Integer       | Integer     |
 | `shr`    | Shift right        | Integer       | Integer     |
 
-`shr` performs **logical** (unsigned) shift for unsigned types and **arithmetic** (sign-extending) shift for signed types.
+`shr` always performs a **logical** (zero-fill) shift regardless of the operand's sign; it never sign-extends, even for signed integer types. For example, for a 32-bit `Integer` with value -1 (bit pattern `$FFFFFFFF`), `-1 shr 1` yields `2147483647`, not `-1`. There is no arithmetic-shift-right operator at the language level.
 
 ### 5.5 Boolean Operators
 
@@ -2024,7 +2024,8 @@ end;
 The compiler generates different cleanup code depending on whether `GetEnumerator` returns a class or a record:
 
 - **Class enumerators**: The compiler wraps the loop in `try..finally` with `Enum.Free` as shown above, since the enumerator is heap-allocated and must be explicitly freed.
-- **Record enumerators**: The enumerator is stack-allocated and requires no explicit cleanup — no `try..finally` is generated. Record enumerators avoid heap allocation overhead and are the more common and efficient choice in modern Delphi. Most RTL and third-party collection enumerators (including Spring4D) use records.
+- **Record enumerators**: The enumerator is stack-allocated and requires no explicit cleanup — no `try..finally` is generated. Record enumerators avoid heap allocation overhead and are used by some collection types and by libraries built for that purpose, but the standard `System.Generics.Collections` types (`TList<T>`, `TDictionary<K,V>`, `TObjectList<T>`, etc.) use class-based enumerators (`TEnumerator<T>`), so the class-enumerator/`try..finally` path above is actually the common case for RTL collections.
+- **Interface enumerators**: When `GetEnumerator` returns an interface type, no manual `Free` is needed — the enumerator is cleaned up automatically via reference counting when it goes out of scope.
 
 ### 6.8 The `while` Statement
 
@@ -2095,7 +2096,7 @@ with A, B do   // equivalent to: with A do with B do
   Foo;         // B.Foo takes precedence over A.Foo
 ```
 
-**Caution:** `with` can cause subtle bugs when the type of the designator changes (e.g., a field is added or renamed). Many style guides discourage its use. The compiler shall generate the same code with or without `with`.
+**Caution:** `with` can cause subtle bugs when the type of the designator changes (e.g., a field is added or renamed). Many style guides discourage its use. For a `with` designator that is a plain variable, the generated code is equivalent to writing out fully-qualified references. However, when the designator is an expression with side effects (a function call, a property with a getter method), `with` evaluates it exactly once and reuses the result — refactoring away from `with` by repeating that expression will call it multiple times, changing behavior.
 
 **Interaction with inline variable declarations (Delphi 10.3+):** An inline variable declared inside a `with` block is subject to the same scope injection as any other identifier. If the inline variable's name collides with a member of the `with` designator, the inline declaration introduces a new local that shadows the member from that point forward. Conversely, an inline variable declared *before* a `with` statement may itself be shadowed by a member of the `with` designator. The compiler does not warn about either case. For clarity, avoid using `with` together with inline variable names that could collide with members of the designator.
 
@@ -2490,7 +2491,7 @@ Rules:
 2. **Allocation**: When called on a class reference, the constructor:
    a. Calls `NewInstance` (which calls `InstanceSize` and allocates memory).
    b. Zero-fills the instance memory.
-   c. Sets the object's class pointer (first field in the VMT layout).
+   c. Sets the object's class pointer (the first field of the instance's memory layout — see [§8.17](#817-object-memory-layout)).
    d. Executes the constructor body.
    e. Calls `AfterConstruction`.
 3. **Exception safety**: If an exception occurs during a constructor invoked on a **class reference** (the allocation form from rule 1), `Destroy` is called automatically and the allocated memory is freed. If the constructor was invoked on an existing instance (e.g., `inherited Create` or `Self.Create`), no automatic `Destroy` or deallocation occurs — the caller is responsible for cleanup.
@@ -2563,7 +2564,7 @@ A `virtual` method is dispatched through the **Virtual Method Table (VMT)**. Eac
 procedure WndProc(var Message: TMessage); dynamic;
 ```
 
-`dynamic` is semantically identical to `virtual` but uses a different dispatch mechanism: a compact message-map instead of a full VMT slot. This saves memory when many classes override few methods, but dispatch is slower (linear search). `dynamic` is primarily used for Windows message handlers.
+`dynamic` is semantically identical to `virtual` but uses a different dispatch mechanism: a compact Dynamic Method Table (DMT) — a sorted list of (index, address) pairs searched at dispatch time — instead of a full VMT slot. This saves memory when many classes override few methods, but dispatch is slower (linear search). `message`-directive handlers (see [§8.8.7](#887-message-handler-methods)) also share this same table, but `dynamic` itself is unrelated to Windows/cross-platform messages — it can be used for any method.
 
 **Modern practice:** Prefer `virtual` in almost all cases. The memory savings of `dynamic` are negligible on modern hardware (a few bytes per class in the VMT), and the slower dispatch via linear search rarely justifies it. `dynamic` remains relevant mainly for message handlers (which use the `message` directive and its own dispatch mechanism). When in doubt, use `virtual`.
 
@@ -2789,13 +2790,16 @@ TObject = class
   function ToString: string; virtual;
   procedure AfterConstruction; virtual;
   procedure BeforeDestruction; virtual;
-  procedure Dispatch(var Message);
+  procedure Dispatch(var Message); virtual;
   procedure DefaultHandler(var Message); virtual;
   class function NewInstance: TObject; virtual;
   procedure FreeInstance; virtual;
   destructor Destroy; virtual;
+  function SafeCallException(ExceptObject: TObject; ExceptAddr: Pointer): HResult; virtual;
 end;
 ```
+
+`SafeCallException` is invoked when an exception escapes a method or interface call made with the `safecall` calling convention (see [§18](#chapter-18-calling-conventions-and-interoperability)); overriding it lets a class customize how exceptions are converted to `HResult` codes for COM-style callers instead of propagating as a Pascal exception.
 
 #### 8.13.1 AfterConstruction and BeforeDestruction
 
@@ -3040,6 +3044,7 @@ TInterfacedObject = class(TObject, IInterface)
     function _AddRef: Integer; stdcall;
     function _Release: Integer; stdcall;
   public
+    class function NewInstance: TObject; override;
     property RefCount: Integer read FRefCount;
     procedure AfterConstruction; override;
     procedure BeforeDestruction; override;
@@ -3048,6 +3053,8 @@ TInterfacedObject = class(TObject, IInterface)
 
 - `_AddRef` increments `FRefCount` (atomically).
 - `_Release` decrements `FRefCount`; when it reaches 0, the object is destroyed.
+- `NewInstance` sets `FRefCount := 1` at allocation time, before the constructor body runs; `AfterConstruction` then decrements it back down. This pairing prevents a reference-counted object from being destroyed mid-construction — for example, if the constructor body itself assigns `Self` to an interface variable, which would otherwise cause a transient refcount trip through 0 before construction finishes.
+- `BeforeDestruction` checks that `RefCount = 0` and raises an invalid-pointer error otherwise, guarding against calling `.Free`/`Destroy` directly on an object still referenced by live interfaces.
 
 #### 9.5.2 Compiler-Generated Reference Management
 
@@ -3631,21 +3638,25 @@ Rules:
 1. Captured variables are captured **by reference**, not by value. Changes to the variable inside the anonymous method affect the original, and vice versa.
 2. Captured variables are **lifetime-extended**: they are moved from the stack to a hidden reference-counted **capture object** (implemented as a compiler-generated interface). They survive as long as any anonymous method referencing them exists.
 3. Multiple anonymous methods in the same scope share the same capture object (and thus the same captured variables).
-4. Loop variables captured by reference share a single storage location, which may lead to unexpected behavior (all closures see the final value). This is a well-known gotcha. The standard workaround is to copy the loop variable to a local variable before capturing:
+4. The compiler special-cases the control variable of a `for` statement (`for I := A to B do` and `for I in Collection do`): when that variable is captured by an anonymous method inside the loop body, each iteration automatically receives its own fresh capture. This avoids the classic "all closures see the final value" bug familiar from other languages (C++, pre-fix C#, JavaScript `var`) — no manual workaround is needed for a `for` loop's own control variable.
+
+   The gotcha does still apply to an ordinary variable that a loop merely increments and is *not* itself the `for` loop's control variable (e.g. a counter in a `while` loop) — such a variable shares a single storage location across iterations, so closures capturing it directly all see whatever value it holds when they finally execute. The workaround there is to copy it to a local variable declared inside the loop body before capturing:
 
 ```pascal
-for i := 0 to 9 do
+var I := 0;
+while I <= 9 do
 begin
-  var LocalCopy := i;  // new local per iteration
-  Procs[i] :=
+  var LocalCopy := I;  // new local per iteration
+  Procs[I] :=
     procedure
     begin
       WriteLn(LocalCopy);  // each closure captures its own LocalCopy
     end;
+  Inc(I);
 end;
 ```
 
-Each iteration creates a new `LocalCopy` variable with its own captured lifetime, so each anonymous method sees the value of `i` at the time it was copied.
+Each iteration creates a new `LocalCopy` variable with its own captured lifetime, so each anonymous method sees the value of `I` at the time it was copied — necessary here because `I` is an ordinary variable, not a `for` loop's control variable.
 
 ### 12.4 Implementation Details
 
@@ -3836,13 +3847,24 @@ The original exception is preserved in the `InnerException` property.
 
 `Abort` raises `EAbort`, a "silent" exception that is caught by the application's default handler without displaying an error message. It is used to cancel an operation without alarming the user.
 
+### 13.8 Retrieving and Preserving the Current Exception
+
+Four `SysUtils` routines let code work with the exception currently being handled from outside the immediate `except` block:
+
+- `function ExceptObject: Exception;` — returns the exception object currently being handled, or `nil` if none. Useful inside a routine called from an `except` block that needs access to the exception without it being passed explicitly.
+- `function ExceptAddr: Pointer;` — returns the code address where the current exception was raised.
+- `function AcquireExceptionObject: Pointer;` — takes ownership of the current exception object, preventing the runtime from freeing it when the `except` block exits. The caller becomes responsible for freeing it (typically via `Exception(P).Free` once it is no longer needed).
+- `procedure ReleaseExceptionObject;` — releases ownership acquired via `AcquireExceptionObject`, returning responsibility for freeing the exception object to the runtime.
+
+`AcquireExceptionObject`/`ReleaseExceptionObject` are the sanctioned way to keep an exception object alive past the end of its `except` block — for example, to hand it to another thread or queue it for later processing — since normally the runtime frees the exception object as soon as the handler that caught it finishes.
+
 ---
 
 ## Chapter 14: Memory Management and Object Lifecycle
 
 ### 14.1 Memory Model Overview
 
-Object Pascal uses **manual memory management** for class instances on the desktop/server compilers (Win32, Win64, Linux, macOS). Developers are responsible for creating and destroying objects.
+Object Pascal uses **manual memory management** for class instances on all current compiler targets, including desktop/server (Win32, Win64, Linux, macOS) and mobile (iOS, Android). Developers are responsible for creating and destroying objects. (Automatic Reference Counting for class instances existed only historically, on mobile targets from Delphi XE7 through 10.3; it was removed in Delphi 10.4 Sydney, and no current target uses it — see [§14.5](#145-weak-references) for the vestiges this leaves in the language.)
 
 #### 14.1.1 Stack Allocation
 - Value types (integers, floats, records, static arrays, sets) are allocated on the stack for local variables.
@@ -3870,10 +3892,10 @@ The `try..finally` pattern is the standard idiom for object lifetime management.
 #### 14.2.1 FreeAndNil
 
 ```pascal
-procedure FreeAndNil(const [ref] Obj: TObject);
+procedure FreeAndNil(var Obj: TObject);
 ```
 
-`FreeAndNil` frees the object and sets the variable to `nil`. This prevents dangling pointer access. The type-safe signature (Delphi 10.4+) ensures that only `TObject` descendants are accepted, preventing misuse with non-object variables.
+`FreeAndNil` frees the object and sets the variable to `nil`. This prevents dangling pointer access. The type-safe signature (Delphi 10.4+) ensures that only `TObject` descendants are accepted, preventing misuse with non-object variables. The parameter must be a `var` parameter — not `const` — because the routine mutates the caller's variable.
 
 ### 14.3 Reference Counting
 
@@ -3918,7 +3940,7 @@ type
 
 When the referenced object is destroyed, weak references are automatically set to `nil`. The runtime tracks all weak references to a given object and zeroes them on destruction.
 
-**Background.** `[weak]` was introduced for Automatic Reference Counting (ARC), originally targeting mobile platforms. On Win32/Win64, ARC is not used for class types, but `[weak]` is still honored for **interface** references. It is not meaningful for plain class-type fields on desktop platforms (use a non-owning raw pointer instead).
+**Background.** `[weak]` was introduced for Automatic Reference Counting (ARC), which existed historically on mobile targets (Delphi XE7 through 10.3) before being removed entirely in Delphi 10.4 Sydney. No current target — desktop or mobile — uses ARC for class types, but `[weak]` survives as a legacy vestige and is still honored for **interface** references on all platforms. It is not meaningful for plain class-type fields on any current platform (use a non-owning raw pointer instead).
 
 **`[unsafe]`** is a stronger variant: it does not participate in reference counting at all (no `_AddRef`/`_Release` calls) and is **not** automatically zeroed when the referenced object is destroyed. Accessing an `[unsafe]` reference after the referenced object is freed is undefined behavior -- the pointer may be dangling. Use `[unsafe]` only in interop scenarios where the lifetime is managed externally.
 
@@ -4242,7 +4264,7 @@ Directives fall into three categories:
 | `{$G+}` / `{$IMPORTEDDATA ON}` | ON | Allow imported data references |
 | `{$H+}` / `{$LONGSTRINGS ON}` | ON | `string` = `UnicodeString` (vs `ShortString`) |
 | `{$I+}` / `{$IOCHECKS ON}` | ON | I/O error checking |
-| `{$J-}` / `{$WRITEABLECONST OFF}` | OFF | Typed constants are read-only |
+| `{$J+}` / `{$WRITEABLECONST ON}` | ON | Typed constants are writable (initialized variables) |
 | `{$L+}` / `{$LOCALSYMBOLS ON}` | ON | Local symbol debug info |
 | `{$M-}` / `{$TYPEINFO OFF}` | OFF | Generate published RTTI |
 | `{$O+}` / `{$OPTIMIZATION ON}` | ON | Compiler optimization |
@@ -4495,7 +4517,7 @@ function strlen(s: PAnsiChar): NativeUInt; cdecl; external 'msvcrt.dll';
 | `wchar_t` | `WideChar` (Win), platform-specific |
 | `short` | `SmallInt` |
 | `int` | `Integer` |
-| `long` | `LongInt` (Win32: 4 bytes) |
+| `long` | `LongInt` on Windows (Win32/Win64, LLP64: 4 bytes). **Not** portable to 64-bit Linux/macOS (LP64), where C `long` is 8 bytes — use `NativeInt`/`Int64` there instead, since Delphi's `LongInt` is always 32-bit regardless of platform. |
 | `long long` | `Int64` |
 | `unsigned char` | `Byte` |
 | `unsigned short` | `Word` |
@@ -4586,7 +4608,7 @@ begin
   LibHandle := LoadLibrary('mylib.dll');
   if LibHandle <> 0 then
   try
-    @MyFunc := GetProcAddress(LibHandle, 'MyFunc');
+    MyFunc := GetProcAddress(LibHandle, 'MyFunc');
     if Assigned(MyFunc) then
       WriteLn(MyFunc(42));
   finally
@@ -5353,16 +5375,20 @@ Win64 offsets are exactly `Win32_offset * 2` because every entry is a pointer or
 
 ```
 Header (before the pointer):
+  [Padding: LongInt (4 bytes, 64-bit targets only)]
   [RefCount: Integer (4 bytes)]
   [Length: NativeInt (4 or 8 bytes)]
 Data (the pointer points here):
   [Element 0][Element 1]...[Element Length-1]
 ```
 
+On 64-bit targets, the RTL's `TDynArrayRec` inserts a 4-byte padding field before `RefCount` to keep the data payload 16-byte aligned; on 32-bit targets there is no padding.
+
 ### F.4 String Memory Layout (UnicodeString)
 
 ```
 Header (before the pointer):
+  [Padding: LongInt (4 bytes, 64-bit targets only)]
   [CodePage: Word (2 bytes)]
   [ElemSize: Word (2 bytes)]
   [RefCount: Integer (4 bytes)]
@@ -5370,6 +5396,8 @@ Header (before the pointer):
 Data (the pointer points here):
   [Char 0][Char 1]...[Char Length-1][#0#0]
 ```
+
+On 64-bit targets, the RTL's `StrRec` inserts a 4-byte padding field before `CodePage` to keep the data payload 16-byte aligned; on 32-bit targets there is no padding.
 
 The null terminator is not included in `Length`. The pointer stored in the string variable points to the first character (Char 0). A `nil` pointer represents an empty string.
 
